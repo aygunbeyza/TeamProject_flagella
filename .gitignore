@@ -1,0 +1,8 @@
+# Log ve Error dosyalarını yok say
+*.out
+*.err
+
+
+# Python'un oluşturduğu geçici önbellek dosyalarını yok say
+__pycache__/
+*.pyc
