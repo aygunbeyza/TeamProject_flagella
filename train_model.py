@@ -23,7 +23,7 @@ else:
 
 # --- 1. DATASET DEFINITION ---
 class MotorSliceDataset(Dataset):
-    def __init__(self, samples, sigma=3.0, patch_size=512):
+    def __init__(self, samples, sigma=6.0, patch_size=512):
         self.samples = samples
         self.sigma = sigma
         self.ps = patch_size
@@ -151,7 +151,10 @@ if __name__ == "__main__":
         for img, hm in train_loader:
             img, hm = img.to(DEVICE), hm.to(DEVICE)
             pred = model(img)
-            loss = loss_fn(pred, hm)
+            
+            # YENİ: Ağırlıklı MSE Loss
+            weight = hm * 100 + 1.0  
+            loss = torch.mean(weight * (pred - hm)**2)
             
             opt.zero_grad()
             loss.backward()
@@ -166,7 +169,11 @@ if __name__ == "__main__":
         with torch.no_grad():
             for img, hm in val_loader:
                 img, hm = img.to(DEVICE), hm.to(DEVICE)
-                vloss += loss_fn(model(img), hm).item()
+                pred_val = model(img) # Tahmini hesapla
+                
+                # YENİ: Doğrulama için Ağırlıklı MSE Loss
+                weight_val = hm * 100 + 1.0
+                vloss += torch.mean(weight_val * (pred_val - hm)**2).item()
         vloss /= max(len(val_loader), 1)
 
         train_losses.append(tloss)
@@ -237,13 +244,13 @@ if __name__ == "__main__":
         
         # 2. column:Target
         axes[i,1].imshow(img, cmap="gray")
-        axes[i,1].imshow(tgt, cmap="jet", alpha=0.4)
+        axes[i,1].imshow(tgt, cmap="jet", alpha=0.4, vmin=0, vmax=1)
         axes[i,1].set_title("Target")
         axes[i,1].axis("off")
         
         # 3.column:  Prediction
         axes[i,2].imshow(img, cmap="gray")
-        axes[i,2].imshow(pred, cmap="jet", alpha=0.4)
+        axes[i,2].imshow(pred, cmap="jet", alpha=0.4, vmin=0, vmax=1)
         axes[i,2].set_title("Prediction")
         axes[i,2].axis("off")
 
