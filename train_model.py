@@ -14,8 +14,12 @@ TRAIN_DIR = os.path.join(BASE_DIR, "train")
 FIGURES_DIR = os.path.join("/data/horse/ws/beay097h-teamproject/TeamProject_flagella", "results")
 
 # Check GPU availability
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {DEVICE}")
+if torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+    print(f"Using GPU: {torch.cuda.get_device_name(0)}")
+else:
+    raise RuntimeError("ther e is no gpu.")
+
 
 # --- 1. DATASET DEFINITION ---
 class MotorSliceDataset(Dataset):
@@ -37,8 +41,17 @@ class MotorSliceDataset(Dataset):
         y, x = int(np.clip(y, 0, h-1)), int(np.clip(x, 0, w-1))
 
         if self.ps and self.ps < min(h, w):
-            t = max(0, min(y - self.ps//2, h - self.ps))
-            l = max(0, min(x - self.ps//2, w - self.ps))
+            # 1. calculate limits
+            t_min = max(0, y - self.ps + 1)
+            t_max = min(h - self.ps, y)
+            l_min = max(0, x - self.ps + 1)
+            l_max = min(w - self.ps, x)
+
+            # 2. choose eandom
+            t = np.random.randint(t_min, max(t_min, t_max) + 1)
+            l = np.random.randint(l_min, max(l_min, l_max) + 1)
+
+            # 3. cut and calculate coordinates again
             img = img[t:t+self.ps, l:l+self.ps]
             y, x = y - t, x - l
 
@@ -123,7 +136,11 @@ if __name__ == "__main__":
     opt = torch.optim.Adam(model.parameters(), lr=1e-4)
     loss_fn = nn.MSELoss()
     
-    NUM_EPOCHS = 10
+    # --- EARLY STOPPING VE EPOCH AYARLARI ---
+    NUM_EPOCHS = 150  # Maksimum sınır (Early stopping daha önce kesecek)
+    patience = 10     # 10 epoch boyunca iyileşme olmazsa durdur
+    best_val_loss = float("inf")
+    epochs_no_improve = 0
     train_losses, val_losses = [], [] 
 
     print("Starting Training...")
@@ -156,14 +173,29 @@ if __name__ == "__main__":
         val_losses.append(vloss)
         print(f"Epoch {ep:02d}/{NUM_EPOCHS} | Train Loss: {tloss:.6f} | Val Loss: {vloss:.6f}")
 
-    # --- SAVE THE MODEL AND LOSS PLOT ---
-    model_save_path = os.path.join(BASE_DIR, "unet_model.pth")
-    torch.save(model.state_dict(), model_save_path)
-    print(f"Model saved successfully to: {model_save_path}")
+        # --- EARLY STOPPING & CHECKPOINT KONTROLÜ ---
+        model_save_path = os.path.join(BASE_DIR, "unet_model.pth")
+        
+        if vloss < best_val_loss:
+            best_val_loss = vloss
+            epochs_no_improve = 0
+            # Sadece model geliştiğinde ağırlıkları kaydet
+            torch.save(model.state_dict(), model_save_path)
+            print(f"  -> Validation Loss düştü! En iyi model kaydedildi.")
+        else:
+            epochs_no_improve += 1
+            print(f"  -> Gelişme yok. (Sabır: {epochs_no_improve}/{patience})")
+            
+            if epochs_no_improve >= patience:
+                print(f"\n--- Early Stopping tetiklendi! Eğitimi durduruluyor. ---")
+                break
 
+    # --- SAVE THE LOSS PLOT ---
     plt.figure(figsize=(8, 5))
-    plt.plot(range(1, NUM_EPOCHS + 1), train_losses, label="Train Loss")
-    plt.plot(range(1, NUM_EPOCHS + 1), val_losses, label="Val Loss")
+    # Gerçekleşen epoch sayısına göre x eksenini ayarla (Early stopping için önemli)
+    actual_epochs = len(train_losses) 
+    plt.plot(range(1, actual_epochs + 1), train_losses, label="Train Loss")
+    plt.plot(range(1, actual_epochs + 1), val_losses, label="Val Loss")
     plt.xlabel("Epochs")
     plt.ylabel("MSE Loss")
     plt.title("Training vs Validation Loss")
@@ -176,9 +208,11 @@ if __name__ == "__main__":
 
 # --- 4. VISUALIZE PREDICTIONS ---
     print("Generating prediction samples...")
+    # Modelin en iyi kaydedilmiş halini yükle (Opsiyonel ama daha güvenilir tahminler için iyi bir adım)
+    model.load_state_dict(torch.load(model_save_path))
     model.eval()
     
-    # Doğrulama setinden 3 örnek seçip tahminleri çizdirelim
+    # plot 3 sample with doğrulama ile
     dataset_val = MotorSliceDataset(val_samples if len(val_samples) > 0 else train_samples)
     n = min(3, len(dataset_val))
     
@@ -189,25 +223,25 @@ if __name__ == "__main__":
     for i in range(n):
         img_t, hm_t = dataset_val[i]
         
-        # Modeli kullanarak tahmin (prediction) yapıyoruz
+        # we do prediction with model here
         with torch.no_grad():
             pred = model(img_t.unsqueeze(0).to(DEVICE)).cpu().squeeze().numpy()
             
         img = img_t.squeeze().numpy()
         tgt = hm_t.squeeze().numpy()
 
-        # 1. Sütun: Orijinal Girdi
+        # 1. column:original input
         axes[i,0].imshow(img, cmap="gray")
         axes[i,0].set_title("Input")
         axes[i,0].axis("off")
         
-        # 2. Sütun: Olması Gereken Hedef (Target)
+        # 2. column:Target
         axes[i,1].imshow(img, cmap="gray")
         axes[i,1].imshow(tgt, cmap="jet", alpha=0.4)
         axes[i,1].set_title("Target")
         axes[i,1].axis("off")
         
-        # 3. Sütun: Modelin Tahmini (Prediction)
+        # 3.column:  Prediction
         axes[i,2].imshow(img, cmap="gray")
         axes[i,2].imshow(pred, cmap="jet", alpha=0.4)
         axes[i,2].set_title("Prediction")
