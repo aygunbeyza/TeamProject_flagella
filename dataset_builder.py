@@ -1,125 +1,145 @@
+"""
+Roadmap step 4: 2D dataset returning (image, heatmap, is_pos).
+
+Positives : slices that contain a motor -> Gaussian heatmap at (y=axis1, x=axis2)
+Negatives : random slices from tomograms with Number of motors == 0 -> all-zero heatmap
+            (meeting notes 08.07: "1st thing to try: add negative images to the dataset")
+"""
+
 import os
 import numpy as np
 import pandas as pd
 from PIL import Image
-import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import Dataset
 
-# --- CLUSTER PATHS ---
+# ---------------------------------------------------------------- paths / defaults
 BASE_DIR = "/data/horse/ws/beay097h-teamproject/flagellar_motors_data"
 CSV_PATH = os.path.join(BASE_DIR, "train_labels.csv")
 TRAIN_DIR = os.path.join(BASE_DIR, "train")
-FIGURES_DIR = os.path.join("/data/horse/ws/beay097h-teamproject/TeamProject_flagella", "results")
 
-os.makedirs(FIGURES_DIR, exist_ok=True)
-SIGMA = 3.0  # Gaussian sigma in pixels
+DEFAULT_SIGMA = 6.0    # meeting notes: sigma = 6 px, try increasing further later
+DEFAULT_PATCH = 512    # meeting notes: full-sized images can be tried later (patch_size=None)
+DEFAULT_NEG_PER_TOMO = 3
 
-# ---------- Utilities ----------
+
+# ---------------------------------------------------------------- helpers
 def load_and_normalize(path):
-    """Load grayscale jpg and normalize using 0.5/99.5 percentiles."""
+    """Roadmap step 1: clip to 0.5/99.5 percentiles, scale to [0, 1]."""
     img = np.array(Image.open(path).convert("L"), dtype=np.float32)
-    low, high = np.percentile(img, 0.5), np.percentile(img, 99.5)
-    img = np.clip((img - low) / (high - low + 1e-8), 0, 1)
-    return img  # (H, W) in [0,1]
+    lo, hi = np.percentile(img, 0.5), np.percentile(img, 99.5)
+    return np.clip((img - lo) / (hi - lo + 1e-8), 0.0, 1.0)
 
-def make_gaussian_heatmap(h, w, y, x, sigma=3.0):
-    """Return (H, W) heatmap with a 2D Gaussian peak at (y, x)."""
+
+def gaussian_heatmap(h, w, y, x, sigma):
+    """Same-size heatmap, zero everywhere except a 2D Gaussian centered on (y, x)."""
     yy, xx = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
-    dist2 = (yy - y) ** 2 + (xx - x) ** 2
-    heatmap = np.exp(-dist2 / (2 * sigma ** 2)).astype(np.float32)
-    return heatmap  # (H, W)
+    return np.exp(-((yy - y) ** 2 + (xx - x) ** 2) / (2.0 * sigma ** 2)).astype(np.float32)
 
-# ---------- Build list of samples from CSV ----------
-df = pd.read_csv(CSV_PATH)
-samples = []  # each item: (image_path, y, x)
 
-for _, row in df.iterrows():
-    if row["Number of motors"] <= 0:
-        continue  # skip rows with no motor
+# ---------------------------------------------------------------- sample list
+def build_samples(tomo_ids, neg_per_tomo=DEFAULT_NEG_PER_TOMO, seed=0, verbose=True):
+    """
+    Build the list of samples for the given tomo_ids (train or val list from step 3).
 
-    tomo_id = row["tomo_id"]
-    z = int(row["Motor axis 0"])
-    y = int(row["Motor axis 1"])
-    x = int(row["Motor axis 2"])
+    Returns
+    -------
+    samples : list of (img_path, y, x, is_pos)
+        is_pos == 1 -> motor at (y, x)
+        is_pos == 0 -> no motor, y = x = -1
+    n_pos, n_neg : int
+    """
+    rng = np.random.default_rng(seed)
+    df = pd.read_csv(CSV_PATH)
+    df = df[df["tomo_id"].isin(tomo_ids)]
 
-    tomo_dir = os.path.join(TRAIN_DIR, tomo_id)
-    img_path = os.path.join(tomo_dir, f"slice_{z:04d}.jpg")
+    samples = []
 
-    if os.path.exists(img_path):
-        samples.append((img_path, y, x))
+    # ---- POSITIVES: the slice that contains the motor ----
+    for _, r in df[df["Number of motors"] > 0].iterrows():
+        z = int(r["Motor axis 0"])
+        path = os.path.join(TRAIN_DIR, r["tomo_id"], f"slice_{z:04d}.jpg")
+        if os.path.exists(path):
+            # axis 1 = row = y, axis 2 = column = x
+            samples.append((path, int(r["Motor axis 1"]), int(r["Motor axis 2"]), 1))
+    n_pos = len(samples)
 
-print(f"Total samples with existing slice: {len(samples)}")
-if len(samples) == 0:
-    raise RuntimeError("No (image, motor) pairs found on disk.")
+    # ---- NEGATIVES: rows with -1,-1,-1 and Number of motors == 0 ----
+    neg_ids = df.loc[df["Number of motors"] == 0, "tomo_id"].unique()
+    for tid in neg_ids:
+        d = os.path.join(TRAIN_DIR, tid)
+        if not os.path.isdir(d):
+            continue
+        slices = sorted(f for f in os.listdir(d) if f.endswith(".jpg"))
+        if not slices:
+            continue
+        k = min(neg_per_tomo, len(slices))
+        for s in rng.choice(slices, size=k, replace=False):
+            samples.append((os.path.join(d, s), -1, -1, 0))
+    n_neg = len(samples) - n_pos
 
-# ---------- PyTorch Dataset ----------
+    if verbose:
+        ratio = n_neg / max(1, len(samples))
+        print(f"[build_samples] pos={n_pos}  neg={n_neg}  total={len(samples)}  "
+              f"(neg ratio {ratio:.2f})")
+    return samples, n_pos, n_neg
+
+
+# ---------------------------------------------------------------- dataset
 class MotorSliceDataset(Dataset):
-    """2D dataset: (normalized slice, Gaussian heatmap)."""
+    """Returns (image[1,H,W], heatmap[1,H,W], is_pos)."""
 
-    def __init__(self, samples, sigma=3.0):
+    def __init__(self, samples, sigma=DEFAULT_SIGMA, patch_size=DEFAULT_PATCH, seed=None):
         self.samples = samples
+
         self.sigma = sigma
+        self.ps = patch_size          # None -> use the full slice
+        self.rng = np.random.default_rng(seed)
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        img_path, y, x = self.samples[idx]
-
-        img = load_and_normalize(img_path)         # (H, W)
+        path, y, x, is_pos = self.samples[idx]
+        img = load_and_normalize(path)
         h, w = img.shape
 
-        # clamp coordinates to image bounds
-        y_clamp = int(np.clip(y, 0, h - 1))
-        x_clamp = int(np.clip(x, 0, w - 1))
+        if self.ps and self.ps < min(h, w):
+            if is_pos == 1:
+                # crop window guaranteed to contain the motor
+                t_lo, t_hi = max(0, y - self.ps + 1), min(h - self.ps, y)
+                l_lo, l_hi = max(0, x - self.ps + 1), min(w - self.ps, x)
+                t = int(self.rng.integers(t_lo, max(t_lo, t_hi) + 1))
+                l = int(self.rng.integers(l_lo, max(l_lo, l_hi) + 1))
+                y, x = y - t, x - l     # coordinates relative to the crop
+            else:
+                # negatives: no motor to center on -> fully random crop
+                t = int(self.rng.integers(0, h - self.ps + 1))
+                l = int(self.rng.integers(0, w - self.ps + 1))
+            img = img[t:t + self.ps, l:l + self.ps]
 
-        heatmap = make_gaussian_heatmap(h, w, y_clamp, x_clamp, self.sigma)
+        ph, pw = img.shape
+        if is_pos == 1:
+            hm = gaussian_heatmap(ph, pw, y, x, self.sigma)
+        else:
+            hm = np.zeros((ph, pw), dtype=np.float32)
 
-        # add channel dim and convert to tensors
-        img_t = torch.from_numpy(img).unsqueeze(0)       # (1, H, W)
-        heatmap_t = torch.from_numpy(heatmap).unsqueeze(0)  # (1, H, W)
+        return (torch.from_numpy(np.ascontiguousarray(img)).unsqueeze(0),
+                torch.from_numpy(hm).unsqueeze(0),
+                int(is_pos))
 
-        return img_t, heatmap_t
 
-# ---------- Quick visual check ----------
+# ---------------------------------------------------------------- self-check
 if __name__ == "__main__":
-    dataset = MotorSliceDataset(samples, sigma=SIGMA)
-    print(f"Dataset size: {len(dataset)}")
+    with open(os.path.join(BASE_DIR, "train_ids.txt")) as f:
+        train_ids = {line.strip() for line in f if line.strip()}
 
-    # Visualize the first sample and save it
-    img_t, hm_t = dataset[0]
-    img = img_t.squeeze(0).numpy()
-    heatmap = hm_t.squeeze(0).numpy()
+    samples, n_pos, n_neg = build_samples(train_ids)
+    ds = MotorSliceDataset(samples, seed=0)
 
-    plt.figure(figsize=(10, 4))
-    
-    plt.subplot(1, 2, 1)
-    plt.title("Input slice")
-    plt.imshow(img, cmap="gray")
-    plt.axis("off")
-    
-    plt.subplot(1, 2, 2)
-    plt.title("Target heatmap")
-    plt.imshow(img, cmap="gray")
-    plt.imshow(heatmap, cmap="jet", alpha=0.4)
-    plt.axis("off")
-    
-    plt.tight_layout()
-    
-    # Save the combined check plot
-    output_path = os.path.join(FIGURES_DIR, "dataset_check_sample0.png")
-    plt.savefig(output_path)
-    print(f"Visual check saved to: {output_path}")
+    pos_idx = next(i for i, s in enumerate(samples) if s[3] == 1)
+    neg_idx = next(i for i, s in enumerate(samples) if s[3] == 0)
 
-    # --- NEW: Heatmap only check ---
-    plt.figure(figsize=(4, 4))
-    plt.title("Heatmap only")
-    plt.imshow(heatmap, cmap="jet")
-    plt.colorbar()
-    plt.axis("off")
-    
-    heatmap_output_path = os.path.join(FIGURES_DIR, "heatmap_only_sample0.png")
-    plt.savefig(heatmap_output_path)
-    print(f"Heatmap check saved to: {heatmap_output_path}")
-    print(f"Max heatmap value: {heatmap.max()}")
+    for name, i in (("positive", pos_idx), ("negative", neg_idx)):
+        img, hm, is_pos = ds[i]
+        print(f"{name:9s} img={tuple(img.shape)} hm_max={float(hm.max()):.3f} is_pos={is_pos}")
