@@ -12,15 +12,15 @@ from dataset_builder import build_samples, MotorSliceDataset
 # ==================================================================
 #  EXPERIMENT SETTINGS  --  change ONLY this block per run
 # ==================================================================
-RUN_TAG      = "run01_negatives_only"
-CHANGE_DESC  = "Negative samples added to dataset (neg_per_tomo=3). Nothing else changed."
-BASELINE_TAG = "run00_old_code (no negatives, hm=100)"
+RUN_TAG      = "run02_sigma_10"
+CHANGE_DESC  = "Sigma 10.0 yapildi ve hit_dist 2*sigma (20) olarak dinamiklestirildi."
+BASELINE_TAG = "run01_negatives_only"
 
-NEG_PER_TOMO = 3         # <-- THE ONLY CHANGE (old behaviour = 0)
-HM_WEIGHT    = 100.0     # unchanged (old value)
-SIGMA        = 6.0       # unchanged
-PATCH        = 512       # unchanged
-HIT_DIST     = 30        # unchanged
+NEG_PER_TOMO = 3         # Negatif oranımız (boş tomogram başına 3 kesit)
+HM_WEIGHT    = 100.0     
+SIGMA        = 10.0      # changed it 6 to 10
+PATCH        = 512       
+HIT_DIST     = int(2 * SIGMA) #it will be 2*sigma
 
 LR         = 1e-4
 BATCH_SIZE = 8

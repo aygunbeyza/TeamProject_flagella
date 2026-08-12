@@ -1,0 +1,33 @@
+==================================================================
+    RUN      : run02_sigma_10
+    DATE     : 2026-08-12T11:38:25
+    CHANGE   : Sigma 10.0 yapildi ve hit_dist 2*sigma (20) olarak dinamiklestirildi.
+    BASELINE : run01_negatives_only
+    ==================================================================
+
+    PARAMETERS
+      neg_per_tomo : 3   <- the only changed variable
+      hm_weight    : 100.0
+      sigma        : 10.0
+      patch        : 512
+      hit_dist     : 20 px
+      features     : [32, 64, 128, 256]
+      lr           : 0.0001
+      batch_size   : 8
+
+    DATA
+      train : 355 pos / 699 neg
+      val   : 96 pos / 159 neg
+
+    RESULTS
+      recall @ 20px : 0.677   (65/96)
+      median dist       : 5.61 px
+      mean peak (pos)   : 0.9052
+      mean peak (neg)   : 0.3982   <- low is good
+      best val loss     : 0.007504  (epoch 23)
+      epochs run        : 33
+      train time        : 10.1 min
+
+    NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
+    ==================================================================
+    
