@@ -1,0 +1,2 @@
+run_tag,change,neg_per_tomo,hm_weight,sigma,patch,hit_dist,features,n_pos_eval,hits,recall_at_hitdist,median_dist_px,mean_peak_pos,mean_peak_neg,best_val_loss,best_epoch,epochs_run,train_time_min
+run01_negatives_only,Negative samples added to dataset (neg_per_tomo=3). Nothing else changed.,3,100.0,6.0,512,30,"[32, 64, 128, 256]",96,62,0.6458,4.74,0.7137,0.3201,0.003535,22,32,9.8

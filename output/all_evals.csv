@@ -1,0 +1,2 @@
+run_tag,best_f1,best_threshold,precision_at_best,recall_at_best,tp,fp,fn,fp_on_neg_slices,fp_on_pos_slices,n_pos_slices,n_neg_slices,hit_distance
+run01_negatives_only,0.396,0.7,0.2921,0.6146,59,143,37,81,62,96,159,30

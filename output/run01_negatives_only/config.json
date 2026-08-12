@@ -1,0 +1,30 @@
+{
+  "run_tag": "run01_negatives_only",
+  "change_desc": "Negative samples added to dataset (neg_per_tomo=3). Nothing else changed.",
+  "baseline_tag": "run00_old_code (no negatives, hm=100)",
+  "timestamp": "2026-08-11T20:10:14",
+  "params": {
+    "neg_per_tomo": 3,
+    "hm_weight": 100.0,
+    "sigma": 6.0,
+    "patch": 512,
+    "hit_dist": 30,
+    "lr": 0.0001,
+    "batch_size": 8,
+    "features": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "num_epochs": 150,
+    "patience": 10
+  },
+  "data": {
+    "train_pos": 355,
+    "train_neg": 699,
+    "val_pos": 96,
+    "val_neg": 159
+  },
+  "model_params": 7765409
+}
