@@ -1,153 +1,208 @@
-import os
+import torch.nn.functional as F
+import os, json, csv
 import numpy as np
 import pandas as pd
 import torch
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.ndimage import maximum_filter
 from PIL import Image
-from train_model import UNet, DEVICE # U-Net ve DEVICE'ı train_model'dan alıyoruz
 
-# --- CLUSTER PATHS ---
-BASE_DIR = "/data/horse/ws/beay097h-teamproject/flagellar_motors_data"
-MODEL_PATH = os.path.join(BASE_DIR, "unet_model.pth")
-FIGURES_DIR = os.path.join("/data/horse/ws/beay097h-teamproject/TeamProject_flagella", "results")
+from train_model import UNet, DEVICE, RUN_TAG, RUN_DIR, OUT_ROOT, BASE_DIR, HIT_DIST
 
-# --- 1. PEAK DETECTION FUNCTION (6. Adımdan Geldi) ---
-def detect_peaks(heatmap, threshold=0.3, min_distance=20):
-    """Extract motor coordinates from heatmap."""
+MODEL_PATH   = os.path.join(RUN_DIR, "unet_model.pth")
+PROJ_DIR     = "/data/horse/ws/beay097h-teamproject/TeamProject_flagella"
+NEG_SLICES   = 3          # kac negatif slice degerlendirilecek (tomogram basina)
+MIN_DISTANCE = 20
+
+
+def detect_peaks(heatmap, threshold=0.3, min_distance=MIN_DISTANCE):
     local_max = maximum_filter(heatmap, size=min_distance)
     peaks_mask = (heatmap == local_max) & (heatmap >= threshold)
-    
     ys, xs = np.where(peaks_mask)
     scores = heatmap[ys, xs]
-    
-    # Sort by score
     order = np.argsort(-scores)
     ys, xs, scores = ys[order], xs[order], scores[order]
-    
-    # NMS (Non-Maximum Suppression)
     keep = []
     for i in range(len(ys)):
-        too_close = False
-        for j in keep:
-            dist = np.sqrt((ys[i]-ys[j])**2 + (xs[i]-xs[j])**2)
-            if dist < min_distance:
-                too_close = True
-                break
-        if not too_close:
+        if all(np.hypot(ys[i] - ys[j], xs[i] - xs[j]) >= min_distance for j in keep):
             keep.append(i)
     return [(ys[i], xs[i], scores[i]) for i in keep]
 
-# --- 2. EVALUATION FUNCTION ---
-def evaluate_detections(all_detections, all_ground_truths, hit_distance=30):
-    tp, fp, fn = 0, 0, 0
+
+def evaluate_detections(all_detections, all_ground_truths, hit_distance=HIT_DIST):
+    tp = fp = fn = 0
     for dets, gt_list in zip(all_detections, all_ground_truths):
         gt_matched = [False] * len(gt_list)
-        
         for (dy, dx, score) in dets:
             matched = False
             for i, gt in enumerate(gt_list):
                 if gt_matched[i]:
                     continue
-                dist = np.sqrt((dy - gt[0])**2 + (dx - gt[1])**2)
-                if dist <= hit_distance:
-                    tp += 1
-                    gt_matched[i] = True
-                    matched = True
-                    break
+                if np.hypot(dy - gt[0], dx - gt[1]) <= hit_distance:
+                    tp += 1; gt_matched[i] = True; matched = True; break
             if not matched:
                 fp += 1
-                
-        for matched in gt_matched:
-            if not matched:
-                fn += 1
-                
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-    return precision, recall, f1
+        fn += gt_matched.count(False)
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall    = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
+    return precision, recall, f1, tp, fp, fn
+
+
+def load_norm(path):
+    img = np.array(Image.open(path).convert("L"), dtype=np.float32)
+    lo, hi = np.percentile(img, 0.5), np.percentile(img, 99.5)
+    return np.clip((img - lo) / (hi - lo + 1e-8), 0, 1)
+
 
 if __name__ == "__main__":
-    # --- 3. LOAD MODEL ---
-    print("Model yükleniyor...")
+    print("=" * 70)
+    print(f"EVALUATING RUN : {RUN_TAG}")
+    print(f"MODEL          : {MODEL_PATH}")
+    print(f"HIT DISTANCE   : {HIT_DIST} px")
+    print("=" * 70)
+
     model = UNet().to(DEVICE)
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     model.eval()
 
-    # --- 4. PREPARE VALIDATION DATA (GÜNCELLENDİ) ---
-    print("Doğrulama (Validation) seti hazırlanıyor...")
     with open(os.path.join(BASE_DIR, "val_ids.txt")) as f:
-        val_ids = set(l.strip() for l in f)
-
+        val_ids = set(line.strip() for line in f if line.strip())
     df = pd.read_csv(os.path.join(BASE_DIR, "train_labels.csv"))
-    # Sadece val_ids içindeki tomogramları al (Pozitif veya negatif fark etmez)
     val_df = df[df["tomo_id"].isin(val_ids)]
 
-    # Aynı tomogramın aynı kesitindeki motorları grupla
-    grouped_val = val_df.groupby(["tomo_id", "Motor axis 0"])
+    pos_df = val_df[val_df["Number of motors"] > 0]
+    neg_ids = sorted(val_df[val_df["Number of motors"] == 0]["tomo_id"].unique())
+    print(f"val tomograms : {len(val_ids)}  (pos rows {len(pos_df)}, neg tomos {len(neg_ids)})")
 
-    all_ground_truths = []
-    all_pred_heatmaps = []
+    all_gt, all_hm, is_pos_flag = [], [], []
 
-    # --- 5. GENERATE HEATMAPS FOR VALIDATION SET (GÜNCELLENDİ) ---
-    print("Doğrulama seti üzerinden tahminler yapılıyor (Bu biraz sürebilir)...")
-    with torch.no_grad():
-        for (tomo_id, z), group in grouped_val:
-            p = os.path.join(BASE_DIR, "train", tomo_id, f"slice_{int(z):04d}.jpg")
-            if not os.path.exists(p):
-                continue
-                
-            # Gerçek motor koordinatlarını topla (Boş resimler için liste boş kalacak)
-            gt_list = []
-            for _, r in group.iterrows():
-                if r["Number of motors"] > 0:
-                    gt_list.append([int(r["Motor axis 1"]), int(r["Motor axis 2"])])
-            
-            # Resmi yükle ve modele ver
-            img = np.array(Image.open(p).convert("L"), dtype=np.float32)
-            lo, hi = np.percentile(img, 0.5), np.percentile(img, 99.5)
-            img = np.clip((img - lo) / (hi - lo + 1e-8), 0, 1)
-            
-            img_t = torch.from_numpy(img).unsqueeze(0).unsqueeze(0).to(DEVICE)
-            pred_hm = model(img_t).cpu().squeeze().numpy()
-            
-            all_pred_heatmaps.append(pred_hm)
-            all_ground_truths.append(gt_list)
+    # ---- POSITIVE slices ----
+    # ---- POSITIVE slices ----
+    print("\nPredicting on positive slices ...")
+    for (tomo_id, z), group in pos_df.groupby(["tomo_id", "Motor axis 0"]):
+        p = os.path.join(BASE_DIR, "train", tomo_id, f"slice_{int(z):04d}.jpg")
+        if not os.path.exists(p):
+            continue
+        gt_list = [[int(r["Motor axis 1"]), int(r["Motor axis 2"])] for _, r in group.iterrows()]
+        img_t = torch.from_numpy(load_norm(p)).unsqueeze(0).unsqueeze(0).to(DEVICE)
 
-    # --- 6. METRIC SWEEP ---
-    print("Farklı eşik değerleri (thresholds) için F1 Skoru hesaplanıyor...")
-    thresholds = np.arange(0.1, 1.0, 0.05)
-    precisions, recalls, f1s = [], [], []
+        # ---- U-Net boyut düzeltmesi (Padding) ----
+        _, _, h, w = img_t.shape
+        pad_h = (16 - h % 16) % 16
+        pad_w = (16 - w % 16) % 16
+        img_t = F.pad(img_t, (0, pad_w, 0, pad_h))
+        # ------------------------------------------
 
+        with torch.no_grad():
+            hm = model(img_t).cpu().squeeze().numpy()
+            hm = hm[:h, :w]  # Eklenen fazlalığı kırp ve orijinal boyuta dön
+            all_hm.append(hm)
+        all_gt.append(gt_list); is_pos_flag.append(True)
+
+    # ---- NEGATIVE slices (yeni) ----
+    # ---- NEGATIVE slices (yeni) ----
+    print(f"Predicting on negative slices ({NEG_SLICES} per empty tomogram) ...")
+    rng = np.random.default_rng(0)
+    for tomo_id in neg_ids:
+        d = os.path.join(BASE_DIR, "train", tomo_id)
+        if not os.path.isdir(d):
+            continue
+        slices = sorted(f for f in os.listdir(d) if f.endswith(".jpg"))
+        if not slices:
+            continue
+        lo, hi = int(0.3 * len(slices)), int(0.7 * len(slices))       # orta bolge
+        cand = slices[lo:hi] or slices
+        pick = rng.choice(cand, size=min(NEG_SLICES, len(cand)), replace=False)
+        for fn_ in pick:
+            img_t = torch.from_numpy(load_norm(os.path.join(d, fn_))).unsqueeze(0).unsqueeze(0).to(DEVICE)
+
+            # ---- U-Net boyut düzeltmesi (Padding) ----
+            _, _, h, w = img_t.shape
+            pad_h = (16 - h % 16) % 16
+            pad_w = (16 - w % 16) % 16
+            img_t = F.pad(img_t, (0, pad_w, 0, pad_h))
+            # ------------------------------------------
+
+            with torch.no_grad():
+                hm = model(img_t).cpu().squeeze().numpy()
+                hm = hm[:h, :w]  # Eklenen fazlalığı kırp ve orijinal boyuta dön
+                all_hm.append(hm)
+            all_gt.append([]); is_pos_flag.append(False)
+
+    # ---- threshold sweep ----
+    print("\nThreshold sweep ...")
+    thresholds = np.arange(0.05, 1.0, 0.05)
+    rows = []
     for t in thresholds:
-        all_detections = []
-        for hm in all_pred_heatmaps:
-            dets = detect_peaks(hm, threshold=t, min_distance=20)
-            all_detections.append(dets)
-            
-        p, r, f1 = evaluate_detections(all_detections, all_ground_truths)
-        precisions.append(p)
-        recalls.append(r)
-        f1s.append(f1)
+        dets = [detect_peaks(hm, threshold=t) for hm in all_hm]
+        p, r, f1, tp, fp, fn = evaluate_detections(dets, all_gt)
+        fp_neg = sum(len(d) for d, ip in zip(dets, is_pos_flag) if not ip)
+        fp_pos = fp - fp_neg
+        rows.append({"threshold": round(float(t), 2), "precision": round(p, 4),
+                     "recall": round(r, 4), "f1": round(f1, 4),
+                     "tp": tp, "fp": fp, "fn": fn,
+                     "fp_on_neg_slices": fp_neg, "fp_on_pos_slices": fp_pos})
+        print(f"  t={t:.2f}  P={p:.3f}  R={r:.3f}  F1={f1:.3f}  "
+              f"TP={tp:4d} FP={fp:5d} (neg {fp_neg:4d}) FN={fn:4d}")
 
-    # --- 7. PLOT AND SAVE ---
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    axes[0].plot(recalls, precisions, "b.-")
-    axes[0].set_title("Precision-Recall Curve")
-    axes[0].set_xlabel("Recall")
-    axes[0].set_ylabel("Precision")
-    axes[0].grid(True)
+    sweep = pd.DataFrame(rows)
+    sweep.to_csv(os.path.join(RUN_DIR, "threshold_sweep.csv"), index=False)
 
-    axes[1].plot(thresholds, f1s, "r.-")
-    axes[1].set_title("F1 Score vs Threshold")
-    axes[1].set_xlabel("Threshold")
-    axes[1].set_ylabel("F1 Score")
-    axes[1].grid(True)
+    best = sweep.loc[sweep["f1"].idxmax()]
+    print(f"\nBEST F1 = {best['f1']:.4f} @ threshold {best['threshold']:.2f}  "
+          f"(P={best['precision']:.3f} R={best['recall']:.3f})")
 
+    # ---- plots ----
+    fig, ax = plt.subplots(1, 3, figsize=(16, 4.5))
+    ax[0].plot(sweep["recall"], sweep["precision"], "b.-")
+    ax[0].set_xlabel("Recall"); ax[0].set_ylabel("Precision")
+    ax[0].set_title("Precision-Recall"); ax[0].grid(alpha=.3)
+    ax[0].set_xlim(0, 1); ax[0].set_ylim(0, 1)
+
+    ax[1].plot(sweep["threshold"], sweep["f1"], "r.-", label="F1")
+    ax[1].plot(sweep["threshold"], sweep["precision"], "b.-", alpha=.5, label="P")
+    ax[1].plot(sweep["threshold"], sweep["recall"], "g.-", alpha=.5, label="R")
+    ax[1].axvline(best["threshold"], ls="--", c="gray", lw=1)
+    ax[1].set_xlabel("Threshold"); ax[1].set_title("Metrics vs Threshold")
+    ax[1].legend(); ax[1].grid(alpha=.3)
+
+    ax[2].plot(sweep["threshold"], sweep["fp_on_neg_slices"], "m.-", label="FP on negative slices")
+    ax[2].plot(sweep["threshold"], sweep["fp_on_pos_slices"], "c.-", label="FP on positive slices")
+    ax[2].set_xlabel("Threshold"); ax[2].set_ylabel("False positives")
+    ax[2].set_title("Where do FPs come from?"); ax[2].legend(); ax[2].grid(alpha=.3)
+
+    fig.suptitle(f"{RUN_TAG}  |  hit_dist={HIT_DIST}px", fontsize=10)
     plt.tight_layout()
-    output_path = os.path.join(FIGURES_DIR, "precision_recall_metrics.png")
-    plt.savefig(output_path)
-    print(f"\nGrafikler başarıyla kaydedildi: {output_path}")
+    plt.savefig(os.path.join(RUN_DIR, "precision_recall_metrics.png"), dpi=120)
+    plt.close()
 
-    best_idx = np.argmax(f1s)
-    print(f"En iyi F1 Skoru: {f1s[best_idx]:.4f} (Eşik Değeri: {thresholds[best_idx]:.2f})")
+    # ---- save ----
+    eval_metrics = {
+        "best_f1": float(best["f1"]), "best_threshold": float(best["threshold"]),
+        "precision_at_best": float(best["precision"]), "recall_at_best": float(best["recall"]),
+        "tp": int(best["tp"]), "fp": int(best["fp"]), "fn": int(best["fn"]),
+        "fp_on_neg_slices": int(best["fp_on_neg_slices"]),
+        "fp_on_pos_slices": int(best["fp_on_pos_slices"]),
+        "n_pos_slices": sum(is_pos_flag), "n_neg_slices": len(is_pos_flag) - sum(is_pos_flag),
+        "hit_distance": HIT_DIST,
+    }
+    with open(os.path.join(RUN_DIR, "eval_metrics.json"), "w") as f:
+        json.dump(eval_metrics, f, indent=2)
+
+    csv_path = os.path.join(OUT_ROOT, "all_evals.csv")
+    row = {"run_tag": RUN_TAG, **eval_metrics}
+    write_header = not os.path.exists(csv_path)
+    with open(csv_path, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(row.keys()))
+        if write_header: w.writeheader()
+        w.writerow(row)
+
+    print(f"\nSaved -> {RUN_DIR}")
+    print(f"Appended -> {csv_path}")
+
+
+
+
