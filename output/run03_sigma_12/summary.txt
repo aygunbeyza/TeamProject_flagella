@@ -1,0 +1,33 @@
+==================================================================
+    RUN      : run03_sigma_12
+    DATE     : 2026-08-12T12:37:41
+    CHANGE   : Sigma changed 10 to 12.0 
+    BASELINE : run01_negatives_only
+    ==================================================================
+
+    PARAMETERS
+      neg_per_tomo : 3   <- the only changed variable
+      hm_weight    : 100.0
+      sigma        : 12.0
+      patch        : 512
+      hit_dist     : 24 px
+      features     : [32, 64, 128, 256]
+      lr           : 0.0001
+      batch_size   : 8
+
+    DATA
+      train : 355 pos / 699 neg
+      val   : 96 pos / 159 neg
+
+    RESULTS
+      recall @ 24px : 0.708   (68/96)
+      median dist       : 5.1 px
+      mean peak (pos)   : 0.8042
+      mean peak (neg)   : 0.2735   <- low is good
+      best val loss     : 0.009583  (epoch 33)
+      epochs run        : 43
+      train time        : 13.7 min
+
+    NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
+    ==================================================================
+    
