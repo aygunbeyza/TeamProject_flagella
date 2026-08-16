@@ -52,9 +52,22 @@ class ResBlock(nn.Module):
     def __init__(self, ci, co):
         super().__init__()
         self.b = nn.Sequential(
-            nn.Conv2d(ci, co, 3, padding=1), nn.BatchNorm2d(co), nn.ReLU(inplace=True),
-            nn.Conv2d(co, co, 3, padding=1), nn.BatchNorm2d(co), nn.ReLU(inplace=True))
-    def forward(self, x): return self.b(x)
+            nn.Conv2d(ci, co, 3, padding=1, bias=False), 
+            nn.BatchNorm2d(co), 
+            nn.ReLU(inplace=True),
+            nn.Conv2d(co, co, 3, padding=1, bias=False), 
+            nn.BatchNorm2d(co)
+        )
+        self.shortcut = nn.Sequential()
+        if ci != co:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(ci, co, 1, bias=False),
+                nn.BatchNorm2d(co)
+            )
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        return self.relu(self.b(x) + self.shortcut(x))
 
 
 class UNet(nn.Module):
@@ -68,7 +81,7 @@ class UNet(nn.Module):
         self.bottleneck = ResBlock(feat[-1], feat[-1] * 2)
         for f in reversed(feat):
             self.ups.append(nn.ConvTranspose2d(f * 2, f, 2, stride=2))
-            self.ups.append(Block(f * 2, f))
+            self.ups.append(ResBlock(f * 2, f))
         self.final = nn.Conv2d(feat[0], 1, 1)
 
     def forward(self, x):
@@ -91,32 +104,6 @@ def weighted_mse(pred, hm, w=HM_WEIGHT):
 
 if __name__ == "__main__":
 
-class ResBlock(nn.Module):
-    def __init__(self, ci, co):
-        super().__init__()
-        # Ana yol (Eski Block ile aynı, sadece en sondaki ReLU'yu sildik çünkü toplamadan sonra yapacağız)
-        self.b = nn.Sequential(
-            nn.Conv2d(ci, co, 3, padding=1, bias=False), 
-            nn.BatchNorm2d(co), 
-            nn.ReLU(inplace=True),
-            nn.Conv2d(co, co, 3, padding=1, bias=False), 
-            nn.BatchNorm2d(co)
-        )
-        
-        # ResNet'in Sihri: Kısa Yol (Shortcut)
-        # Eğer giriş kanalı ile çıkış kanalı farklıysa eşitlemek için 1x1 konvolüsyon yapıyoruz
-        self.shortcut = nn.Sequential()
-        if ci != co:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(ci, co, 1, bias=False),
-                nn.BatchNorm2d(co)
-            )
-            
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        # Ana yoldan geçen veri ile kısa yoldan gelen orijinal veriyi TOPLA ve ReLU'dan geçir
-        return self.relu(self.b(x) + self.shortcut(x))
 # ---------------- data ----------------
     with open(os.path.join(BASE_DIR, "train_ids.txt")) as f:
         train_ids = [line.strip() for line in f if line.strip()]
