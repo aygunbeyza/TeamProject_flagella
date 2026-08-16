@@ -1,0 +1,30 @@
+{
+  "run_tag": "run05_sigma12_hm20",
+  "change_desc": "HM_WEIGHT 100'den 20'ye dusuruldu.",
+  "baseline_tag": "run03_sigma_12",
+  "timestamp": "2026-08-16T16:31:52",
+  "params": {
+    "neg_per_tomo": 3,
+    "hm_weight": 20,
+    "sigma": 12.0,
+    "patch": 512,
+    "hit_dist": 24,
+    "lr": 0.0001,
+    "batch_size": 8,
+    "features": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "num_epochs": 150,
+    "patience": 10
+  },
+  "data": {
+    "train_pos": 355,
+    "train_neg": 699,
+    "val_pos": 96,
+    "val_neg": 159
+  },
+  "model_params": 7765409
+}
