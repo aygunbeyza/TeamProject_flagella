@@ -12,12 +12,12 @@ from dataset_builder import build_samples, MotorSliceDataset
 # ==================================================================
 #  EXPERIMENT SETTINGS  --  change ONLY this block per run
 # ==================================================================
-RUN_TAG      = "run05_sigma12_hm20"
-CHANGE_DESC  = "HM_WEIGHT 100'den 20'ye dusuruldu."
-BASELINE_TAG = "run03_sigma_12"
+RUN_TAG      = "run08_resnet_sigma12_hm10"
+CHANGE_DESC  = "ResNet (ResBlock) mimarisi eklendi."
+BASELINE_TAG = "run06_sigma12_hm10"
 
 NEG_PER_TOMO = 3         # Negatif oranımız (boş tomogram başına 3 kesit)
-HM_WEIGHT    = 20
+HM_WEIGHT    = 10
 SIGMA        = 12.0
 PATCH        = 512
 HIT_DIST     = int(2 * SIGMA) #it will be 2*sigma
@@ -48,7 +48,7 @@ print("=" * 70)
 
 
 # ---------------- model ----------------
-class Block(nn.Module):
+class ResBlock(nn.Module):
     def __init__(self, ci, co):
         super().__init__()
         self.b = nn.Sequential(
@@ -64,8 +64,8 @@ class UNet(nn.Module):
         self.pool = nn.MaxPool2d(2)
         c = 1
         for f in feat:
-            self.downs.append(Block(c, f)); c = f
-        self.bottleneck = Block(feat[-1], feat[-1] * 2)
+            self.downs.append(ResBlock(c, f)); c = f
+        self.bottleneck = ResBlock(feat[-1], feat[-1] * 2)
         for f in reversed(feat):
             self.ups.append(nn.ConvTranspose2d(f * 2, f, 2, stride=2))
             self.ups.append(Block(f * 2, f))
@@ -91,6 +91,32 @@ def weighted_mse(pred, hm, w=HM_WEIGHT):
 
 if __name__ == "__main__":
 
+class ResBlock(nn.Module):
+    def __init__(self, ci, co):
+        super().__init__()
+        # Ana yol (Eski Block ile aynı, sadece en sondaki ReLU'yu sildik çünkü toplamadan sonra yapacağız)
+        self.b = nn.Sequential(
+            nn.Conv2d(ci, co, 3, padding=1, bias=False), 
+            nn.BatchNorm2d(co), 
+            nn.ReLU(inplace=True),
+            nn.Conv2d(co, co, 3, padding=1, bias=False), 
+            nn.BatchNorm2d(co)
+        )
+        
+        # ResNet'in Sihri: Kısa Yol (Shortcut)
+        # Eğer giriş kanalı ile çıkış kanalı farklıysa eşitlemek için 1x1 konvolüsyon yapıyoruz
+        self.shortcut = nn.Sequential()
+        if ci != co:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(ci, co, 1, bias=False),
+                nn.BatchNorm2d(co)
+            )
+            
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        # Ana yoldan geçen veri ile kısa yoldan gelen orijinal veriyi TOPLA ve ReLU'dan geçir
+        return self.relu(self.b(x) + self.shortcut(x))
 # ---------------- data ----------------
     with open(os.path.join(BASE_DIR, "train_ids.txt")) as f:
         train_ids = [line.strip() for line in f if line.strip()]
