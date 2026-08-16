@@ -1,0 +1,30 @@
+{
+  "run_tag": "run04_sigma_14",
+  "change_desc": "Sigma changed 12 to 14.0 ",
+  "baseline_tag": "run01_negatives_only",
+  "timestamp": "2026-08-14T21:43:23",
+  "params": {
+    "neg_per_tomo": 3,
+    "hm_weight": 100.0,
+    "sigma": 14.0,
+    "patch": 512,
+    "hit_dist": 28,
+    "lr": 0.0001,
+    "batch_size": 8,
+    "features": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "num_epochs": 150,
+    "patience": 10
+  },
+  "data": {
+    "train_pos": 355,
+    "train_neg": 699,
+    "val_pos": 96,
+    "val_neg": 159
+  },
+  "model_params": 7765409
+}
