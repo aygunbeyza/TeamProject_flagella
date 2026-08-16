@@ -5,7 +5,7 @@ Positives : slices that contain a motor -> Gaussian heatmap at (y=axis1, x=axis2
 Negatives : random slices from tomograms with Number of motors == 0 -> all-zero heatmap
             (meeting notes 08.07: "1st thing to try: add negative images to the dataset")
 """
-
+import torchvision.transforms.functional as TF
 import os
 import numpy as np
 import pandas as pd
@@ -119,14 +119,33 @@ class MotorSliceDataset(Dataset):
             img = img[t:t + self.ps, l:l + self.ps]
 
         ph, pw = img.shape
-        if is_pos == 1:
+if is_pos == 1:
             hm = gaussian_heatmap(ph, pw, y, x, self.sigma)
         else:
             hm = np.zeros((ph, pw), dtype=np.float32)
 
-        return (torch.from_numpy(np.ascontiguousarray(img)).unsqueeze(0),
-                torch.from_numpy(hm).unsqueeze(0),
-                int(is_pos))
+        # Tensörlere çevir
+        img_t = torch.from_numpy(np.ascontiguousarray(img)).unsqueeze(0)
+        hm_t = torch.from_numpy(hm).unsqueeze(0)
+
+        # ----- DATA AUGMENTATION (VERİ ÇOĞALTMA/BOZMA) -----
+        # Bu işlemi sadece eğitim setine uygulamak için ufak bir şans faktörü koyuyoruz (%50 ihtimal)
+        if self.rng.random() > 0.5:
+            # 1. Rastgele Çevirme (Flip) - Yatay ve Dikey
+            if self.rng.random() > 0.5:
+                img_t = TF.hflip(img_t)
+                hm_t = TF.hflip(hm_t)
+            if self.rng.random() > 0.5:
+                img_t = TF.vflip(img_t)
+                hm_t = TF.vflip(hm_t)
+                
+            # 2. Rastgele Döndürme (Rotation) - -15 ile +15 derece arası
+            angle = float(self.rng.uniform(-15.0, 15.0))
+            img_t = TF.rotate(img_t, angle)
+            hm_t = TF.rotate(hm_t, angle)
+        # --------------------------------------------------
+
+        return (img_t, hm_t, int(is_pos))
 
 
 # ---------------------------------------------------------------- self-check
