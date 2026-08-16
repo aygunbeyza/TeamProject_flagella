@@ -1,0 +1,33 @@
+==================================================================
+    RUN      : run06_sigma12_hm10
+    DATE     : 2026-08-16T17:04:01
+    CHANGE   : HM_WEIGHT 20'den 10'ye dusuruldu.
+    BASELINE : run03_sigma_12
+    ==================================================================
+
+    PARAMETERS
+      neg_per_tomo : 3   <- the only changed variable
+      hm_weight    : 10
+      sigma        : 12.0
+      patch        : 512
+      hit_dist     : 24 px
+      features     : [32, 64, 128, 256]
+      lr           : 0.0001
+      batch_size   : 8
+
+    DATA
+      train : 355 pos / 699 neg
+      val   : 96 pos / 159 neg
+
+    RESULTS
+      recall @ 24px : 0.771   (74/96)
+      median dist       : 5.61 px
+      mean peak (pos)   : 0.6836
+      mean peak (neg)   : 0.08   <- low is good
+      best val loss     : 0.001585  (epoch 31)
+      epochs run        : 41
+      train time        : 12.4 min
+
+    NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
+    ==================================================================
+    

@@ -1,0 +1,14 @@
+{
+  "best_f1": 0.7665,
+  "best_threshold": 0.75,
+  "precision_at_best": 0.9014,
+  "recall_at_best": 0.6667,
+  "tp": 64,
+  "fp": 7,
+  "fn": 32,
+  "fp_on_neg_slices": 4,
+  "fp_on_pos_slices": 3,
+  "n_pos_slices": 96,
+  "n_neg_slices": 159,
+  "hit_distance": 24
+}

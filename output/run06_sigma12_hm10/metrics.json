@@ -1,0 +1,12 @@
+{
+  "n_pos_eval": 96,
+  "hits": 74,
+  "recall_at_hitdist": 0.7708,
+  "median_dist_px": 5.61,
+  "mean_peak_pos": 0.6836,
+  "mean_peak_neg": 0.08,
+  "best_val_loss": 0.001585,
+  "best_epoch": 31,
+  "epochs_run": 41,
+  "train_time_min": 12.4
+}
