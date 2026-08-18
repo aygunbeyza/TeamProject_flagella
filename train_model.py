@@ -12,9 +12,9 @@ from dataset_builder import build_samples, MotorSliceDataset
 # ==================================================================
 #  EXPERIMENT SETTINGS  --  change ONLY this block per run
 # ==================================================================
-RUN_TAG      = "run08_resnet_sigma12_hm10"
-CHANGE_DESC  = "ResNet (ResBlock) mimarisi eklendi."
-BASELINE_TAG = "run06_sigma12_hm10"
+RUN_TAG      = "run10_resnet_augmented"
+CHANGE_DESC  = "ResNet + Data Augmentation (Rotation & Flips) eklendi."
+BASELINE_TAG = "run08_resnet_sigma12_hm10"
 
 NEG_PER_TOMO = 3         # Negatif oranımız (boş tomogram başına 3 kesit)
 HM_WEIGHT    = 10
