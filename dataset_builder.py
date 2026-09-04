@@ -19,7 +19,7 @@ CSV_PATH = os.path.join(BASE_DIR, "train_labels.csv")
 TRAIN_DIR = os.path.join(BASE_DIR, "train")
 
 DEFAULT_SIGMA = 6.0    # meeting notes: sigma = 6 px, try increasing further later
-DEFAULT_PATCH = 512    # meeting notes: full-sized images can be tried later (patch_size=None)
+DEFAULT_PATCH = None   # None -> full-size image kullanilir, kirpma yapilmaz
 DEFAULT_BG_PER_TOMO = 3
 
 

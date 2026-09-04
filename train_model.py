@@ -10,17 +10,16 @@ import matplotlib.pyplot as plt
 from dataset_builder import build_samples, MotorSliceDataset
 
 # ==================================================================
-#  EXPERIMENT SETTINGS  --  change ONLY this block per run
+#  EXPERIMENT SETTINGS
 # ==================================================================
-RUN_TAG      = "run10_resnet_augmented"
-CHANGE_DESC  = "ResNet + Data Augmentation (Rotation & Flips) eklendi."
+SIGMA_VALUES = [8.0, 10.0, 12.0, 14.0, 16.0]   # sweep: tum bu sigma degerleri denenecek
+HIT_DIST     = 24                               # SABIT -- tum run'larda ayni kalir (notes: "fixed")
+CHANGE_DESC  = "Sigma sweep (hit_distance sabit tutuldu)."
 BASELINE_TAG = "run08_resnet_sigma12_hm10"
 
 BG_PER_TOMO  = 3         # background ratio (empty tomogram basina 3 kesit)
 HM_WEIGHT    = 10
-SIGMA        = 12.0
-PATCH        = 512
-HIT_DIST     = int(2 * SIGMA) #it will be 2*sigma
+PATCH        = None      # None -> full-size image kullanilir, kirpma yapilmaz
 
 LR         = 1e-4
 BATCH_SIZE = 8
@@ -31,20 +30,10 @@ FEATURES   = [32, 64, 128, 256]
 
 BASE_DIR = "/data/horse/ws/beay097h-teamproject/flagellar_motors_data"
 PROJ_DIR = "/data/horse/ws/beay097h-teamproject/TeamProject_flagella"
-OUT_ROOT = os.path.join(PROJ_DIR, "output")
-RUN_DIR  = os.path.join(OUT_ROOT, RUN_TAG)
-os.makedirs(RUN_DIR, exist_ok=True)
+OUT_ROOT = os.path.join(PROJ_DIR, "output_2")
+os.makedirs(OUT_ROOT, exist_ok=True)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print("=" * 70)
-print(f"RUN      : {RUN_TAG}")
-print(f"CHANGE   : {CHANGE_DESC}")
-print(f"BASELINE : {BASELINE_TAG}")
-print(f"OUTPUT   : {RUN_DIR}")
-print(f"DEVICE   : {DEVICE}")
-if DEVICE == "cuda":
-    print(f"GPU      : {torch.cuda.get_device_name(0)}")
-print("=" * 70)
 
 
 # ---------------- model ----------------
@@ -101,23 +90,30 @@ def weighted_mse(pred, hm, w=HM_WEIGHT):
     return torch.mean(weight * (pred - hm) ** 2)
 
 
-if __name__ == "__main__":
+# ---------------- single experiment ----------------
+def run_experiment(sigma, train_ids, val_ids):
+    run_tag = f"sigma{int(sigma):02d}_hitdist{HIT_DIST}"   # aciklayici klasor ismi, orn: sigma08_hitdist24
+    run_dir = os.path.join(OUT_ROOT, run_tag)
+    os.makedirs(run_dir, exist_ok=True)
+
+    print("=" * 70)
+    print(f"RUN      : {run_tag}")
+    print(f"CHANGE   : {CHANGE_DESC}")
+    print(f"SIGMA    : {sigma}   HIT_DIST : {HIT_DIST}  (fixed)")
+    print(f"OUTPUT   : {run_dir}")
+    print(f"DEVICE   : {DEVICE}")
+    if DEVICE == "cuda":
+        print(f"GPU      : {torch.cuda.get_device_name(0)}")
+    print("=" * 70)
 
     # ---------------- data ----------------
-    with open(os.path.join(BASE_DIR, "train_ids.txt")) as f:
-        train_ids = [line.strip() for line in f if line.strip()]
-
-    with open(os.path.join(BASE_DIR, "val_ids.txt")) as f:
-        val_ids = [line.strip() for line in f if line.strip()]
-
     train_samples, train_fg, train_bg = build_samples(train_ids, bg_per_tomo=BG_PER_TOMO)
-
     val_samples, val_fg, val_bg = build_samples(val_ids, bg_per_tomo=BG_PER_TOMO)
     print(f"train  foreground={train_fg:5d}  background={train_bg:5d}  total={train_fg+train_bg:5d}")
     print(f"val    foreground={val_fg:5d}  background={val_bg:5d}  total={val_fg+val_bg:5d}")
 
-    train_ds = MotorSliceDataset(train_samples, sigma=SIGMA, patch_size=PATCH)
-    val_ds   = MotorSliceDataset(val_samples,   sigma=SIGMA, patch_size=PATCH)
+    train_ds = MotorSliceDataset(train_samples, sigma=sigma, patch_size=PATCH)
+    val_ds   = MotorSliceDataset(val_samples,   sigma=sigma, patch_size=PATCH)
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=4)
     val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
@@ -153,7 +149,7 @@ if __name__ == "__main__":
 
         if va < best_val:
             best_val, best_ep, bad = va, ep, 0
-            torch.save(model.state_dict(), os.path.join(RUN_DIR, "unet_model.pth"))
+            torch.save(model.state_dict(), os.path.join(run_dir, "unet_model.pth"))
             print("  <- best saved")
         else:
             bad += 1
@@ -171,12 +167,12 @@ if __name__ == "__main__":
     plt.plot(range(1, n_ep + 1), val_losses,   label="Val")
     plt.axvline(best_ep, ls="--", c="gray", lw=1, label=f"best ep {best_ep}")
     plt.xlabel("Epoch"); plt.ylabel(f"Weighted MSE (hm_w={HM_WEIGHT})")
-    plt.title(f"{RUN_TAG}\n{CHANGE_DESC}", fontsize=9)
+    plt.title(f"{run_tag}\n{CHANGE_DESC}", fontsize=9)
     plt.legend(); plt.grid(alpha=.3); plt.tight_layout()
-    plt.savefig(os.path.join(RUN_DIR, "loss_curve.png"), dpi=120); plt.close()
+    plt.savefig(os.path.join(run_dir, "loss_curve.png"), dpi=120); plt.close()
 
     # ---------------- evaluate ----------------
-    model.load_state_dict(torch.load(os.path.join(RUN_DIR, "unet_model.pth")))
+    model.load_state_dict(torch.load(os.path.join(run_dir, "unet_model.pth")))
     model.eval()
 
     foreground_idx = [i for i, s in enumerate(val_samples) if s[3] == 1]
@@ -205,6 +201,8 @@ if __name__ == "__main__":
             background_peaks.append(float(pred.max()))
 
     metrics = {
+        "sigma":                 sigma,
+        "hit_distance":          HIT_DIST,
         "n_foreground_eval":     len(foreground_idx),
         "hits":                  hits,
         "recall_at_hitdist":     round(recall, 4),
@@ -234,7 +232,7 @@ if __name__ == "__main__":
 
             ax[r, 0].imshow(img, cmap="gray"); ax[r, 0].plot(tx, ty, "r+", ms=14, mew=2)
             ax[r, 0].set_title(f"input  (tomo {val_samples[i][0]})", fontsize=8)
-            ax[r, 1].imshow(tgt, cmap="hot"); ax[r, 1].set_title(f"target  sigma={SIGMA}", fontsize=8)
+            ax[r, 1].imshow(tgt, cmap="hot"); ax[r, 1].set_title(f"target  sigma={sigma}", fontsize=8)
             ax[r, 2].imshow(pred, cmap="hot")
             ax[r, 2].plot(tx, ty, "r+", ms=14, mew=2)
             ax[r, 2].plot(px, py, "wx", ms=12, mew=2)
@@ -242,40 +240,40 @@ if __name__ == "__main__":
                                f"{'HIT' if ok else 'MISS'}",
                                fontsize=8, color="green" if ok else "red")
             for c in range(3): ax[r, c].axis("off")
-    fig.suptitle(f"{RUN_TAG} | {CHANGE_DESC}", fontsize=10)
-    plt.tight_layout(); plt.savefig(os.path.join(RUN_DIR, "predictions.png"), dpi=120); plt.close()
+    fig.suptitle(f"{run_tag} | {CHANGE_DESC}", fontsize=10)
+    plt.tight_layout(); plt.savefig(os.path.join(run_dir, "predictions.png"), dpi=120); plt.close()
 
     # ---------------- save records ----------------
     config = {
-        "run_tag": RUN_TAG, "change_desc": CHANGE_DESC, "baseline_tag": BASELINE_TAG,
+        "run_tag": run_tag, "change_desc": CHANGE_DESC, "baseline_tag": BASELINE_TAG,
         "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
-        "params": {"bg_per_tomo": BG_PER_TOMO, "hm_weight": HM_WEIGHT, "sigma": SIGMA,
-                   "patch": PATCH, "hit_dist": HIT_DIST, "lr": LR,
+        "params": {"sigma": sigma, "hit_dist": HIT_DIST, "bg_per_tomo": BG_PER_TOMO,
+                   "hm_weight": HM_WEIGHT, "patch": PATCH, "lr": LR,
                    "batch_size": BATCH_SIZE, "features": FEATURES,
                    "num_epochs": NUM_EPOCHS, "patience": PATIENCE},
         "data": {"train_foreground": train_fg, "train_background": train_bg,
                   "val_foreground": val_fg, "val_background": val_bg},
         "model_params": n_par,
     }
-    with open(os.path.join(RUN_DIR, "config.json"), "w") as f:
+    with open(os.path.join(run_dir, "config.json"), "w") as f:
         json.dump(config, f, indent=2)
-    with open(os.path.join(RUN_DIR, "metrics.json"), "w") as f:
+    with open(os.path.join(run_dir, "metrics.json"), "w") as f:
         json.dump(metrics, f, indent=2)
 
-    with open(os.path.join(RUN_DIR, "summary.txt"), "w") as f:
+    with open(os.path.join(run_dir, "summary.txt"), "w") as f:
         f.write(f"""{'='*66}
-RUN      : {RUN_TAG}
+RUN      : {run_tag}
 DATE     : {config['timestamp']}
 CHANGE   : {CHANGE_DESC}
 BASELINE : {BASELINE_TAG}
 {'='*66}
 
 PARAMETERS
-  bg_per_tomo  : {BG_PER_TOMO}   <- the only changed variable
+  sigma        : {sigma}   <- swept variable
+  hit_dist     : {HIT_DIST} px   <- FIXED across all sigma runs
+  bg_per_tomo  : {BG_PER_TOMO}
   hm_weight    : {HM_WEIGHT}
-  sigma        : {SIGMA}
   patch        : {PATCH}
-  hit_dist     : {HIT_DIST} px
   features     : {FEATURES}
   lr           : {LR}
   batch_size   : {BATCH_SIZE}
@@ -293,14 +291,14 @@ RESULTS
   epochs run        : {n_ep}
   train time        : {mins:.1f} min
 
-NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
+NOTE: hit_distance is fixed across all sigma runs so results are comparable.
 {'='*66}
 """)
 
     csv_path = os.path.join(OUT_ROOT, "all_runs.csv")
-    row = {"run_tag": RUN_TAG, "change": CHANGE_DESC,
-           "bg_per_tomo": BG_PER_TOMO, "hm_weight": HM_WEIGHT, "sigma": SIGMA,
-           "patch": PATCH, "hit_dist": HIT_DIST, "features": str(FEATURES),
+    row = {"run_tag": run_tag, "change": CHANGE_DESC,
+           "sigma": sigma, "hit_dist": HIT_DIST, "bg_per_tomo": BG_PER_TOMO,
+           "hm_weight": HM_WEIGHT, "patch": PATCH, "features": str(FEATURES),
            **metrics}
     write_header = not os.path.exists(csv_path)
     with open(csv_path, "a", newline="") as f:
@@ -308,6 +306,30 @@ NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
         if write_header: w.writeheader()
         w.writerow(row)
 
-    print(f"\nSaved -> {RUN_DIR}")
+    print(f"\nSaved -> {run_dir}")
     print(f"Appended -> {csv_path}")
-    print(open(os.path.join(RUN_DIR, "summary.txt")).read())
+    print(open(os.path.join(run_dir, "summary.txt")).read())
+
+    return run_tag, run_dir, metrics
+
+
+# ---------------- sweep entry point ----------------
+if __name__ == "__main__":
+    with open(os.path.join(BASE_DIR, "train_ids.txt")) as f:
+        train_ids = [line.strip() for line in f if line.strip()]
+
+    with open(os.path.join(BASE_DIR, "val_ids.txt")) as f:
+        val_ids = [line.strip() for line in f if line.strip()]
+
+    all_results = []
+    for sigma in SIGMA_VALUES:
+        run_tag, run_dir, metrics = run_experiment(sigma, train_ids, val_ids)
+        all_results.append({"run_tag": run_tag, **metrics})
+
+    print("\n" + "=" * 70)
+    print("SIGMA SWEEP COMPLETE")
+    print("=" * 70)
+    for r in all_results:
+        print(f"  sigma={r['sigma']:5.1f}  recall={r['recall_at_hitdist']:.3f}  "
+              f"median_dist={r['median_dist_px']}px  best_val_loss={r['best_val_loss']:.6f}  "
+              f"-> {r['run_tag']}")

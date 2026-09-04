@@ -18,6 +18,20 @@ source activate /home/beay097h/team-env
 # Navigate to your working directory
 cd /data/horse/ws/beay097h-teamproject/TeamProject_flagella
 
+#echo "1 & 2. Reading labels and exploring samples..."
+#python explore_labels.py
+#python prepare_data.py
+
+#echo "3. Splitting dataset into Train and Validation..."
+#python split_data.py
+
+echo "4. Testing PyTorch Dataset and generating heatmap..."
+python dataset_builder.py
+
+#echo "All data preparation steps completed successfully!"
+
+
+
 echo "Step 5: Training the U-Net model..."
 python train_model.py
 

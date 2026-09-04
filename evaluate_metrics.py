@@ -9,12 +9,10 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import maximum_filter
 from PIL import Image
 
-from train_model import UNet, DEVICE, RUN_TAG, RUN_DIR, OUT_ROOT, BASE_DIR, HIT_DIST
+from train_model import UNet, DEVICE, SIGMA_VALUES, HIT_DIST, OUT_ROOT, BASE_DIR
 
-MODEL_PATH        = os.path.join(RUN_DIR, "unet_model.pth")
-PROJ_DIR          = "/data/horse/ws/beay097h-teamproject/TeamProject_flagella"
 BG_SLICES_PER_TOMO = 3          # kac background slice degerlendirilecek (tomogram basina)
-MIN_DISTANCE      = 20
+MIN_DISTANCE       = 20
 
 
 def detect_peaks(heatmap, threshold=0.3, min_distance=MIN_DISTANCE):
@@ -57,15 +55,23 @@ def load_norm(path):
     return np.clip((img - lo) / (hi - lo + 1e-8), 0, 1)
 
 
-if __name__ == "__main__":
+def evaluate_run(sigma):
+    run_tag = f"sigma{int(sigma):02d}_hitdist{HIT_DIST}"
+    run_dir = os.path.join(OUT_ROOT, run_tag)
+    model_path = os.path.join(run_dir, "unet_model.pth")
+
     print("=" * 70)
-    print(f"EVALUATING RUN : {RUN_TAG}")
-    print(f"MODEL          : {MODEL_PATH}")
+    print(f"EVALUATING RUN : {run_tag}")
+    print(f"MODEL          : {model_path}")
     print(f"HIT DISTANCE   : {HIT_DIST} px")
     print("=" * 70)
 
+    if not os.path.exists(model_path):
+        print(f"!! model not found, skipping: {model_path}")
+        return None
+
     model = UNet().to(DEVICE)
-    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    model.load_state_dict(torch.load(model_path, map_location=DEVICE))
     model.eval()
 
     with open(os.path.join(BASE_DIR, "val_ids.txt")) as f:
@@ -147,7 +153,7 @@ if __name__ == "__main__":
               f"TP={tp:4d} FP={fp:5d} (background {fp_background:4d}) FN={fn:4d}")
 
     sweep = pd.DataFrame(rows)
-    sweep.to_csv(os.path.join(RUN_DIR, "threshold_sweep.csv"), index=False)
+    sweep.to_csv(os.path.join(run_dir, "threshold_sweep.csv"), index=False)
 
     best = sweep.loc[sweep["f1"].idxmax()]
     print(f"\nBEST F1 = {best['f1']:.4f} @ threshold {best['threshold']:.2f}  "
@@ -172,13 +178,14 @@ if __name__ == "__main__":
     ax[2].set_xlabel("Threshold"); ax[2].set_ylabel("False positives")
     ax[2].set_title("Where do FPs come from?"); ax[2].legend(); ax[2].grid(alpha=.3)
 
-    fig.suptitle(f"{RUN_TAG}  |  hit_dist={HIT_DIST}px", fontsize=10)
+    fig.suptitle(f"{run_tag}  |  hit_dist={HIT_DIST}px", fontsize=10)
     plt.tight_layout()
-    plt.savefig(os.path.join(RUN_DIR, "precision_recall_metrics.png"), dpi=120)
+    plt.savefig(os.path.join(run_dir, "precision_recall_metrics.png"), dpi=120)
     plt.close()
 
     # ---- save ----
     eval_metrics = {
+        "sigma": sigma,
         "best_f1": float(best["f1"]), "best_threshold": float(best["threshold"]),
         "precision_at_best": float(best["precision"]), "recall_at_best": float(best["recall"]),
         "tp": int(best["tp"]), "fp": int(best["fp"]), "fn": int(best["fn"]),
@@ -188,16 +195,35 @@ if __name__ == "__main__":
         "n_background_slices": len(is_foreground_flag) - sum(is_foreground_flag),
         "hit_distance": HIT_DIST,
     }
-    with open(os.path.join(RUN_DIR, "eval_metrics.json"), "w") as f:
+    with open(os.path.join(run_dir, "eval_metrics.json"), "w") as f:
         json.dump(eval_metrics, f, indent=2)
 
     csv_path = os.path.join(OUT_ROOT, "all_evals.csv")
-    row = {"run_tag": RUN_TAG, **eval_metrics}
+    row = {"run_tag": run_tag, **eval_metrics}
     write_header = not os.path.exists(csv_path)
     with open(csv_path, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(row.keys()))
         if write_header: w.writeheader()
         w.writerow(row)
 
-    print(f"\nSaved -> {RUN_DIR}")
+    print(f"\nSaved -> {run_dir}")
     print(f"Appended -> {csv_path}")
+
+    return run_tag, eval_metrics
+
+
+if __name__ == "__main__":
+    all_eval_results = []
+    for sigma in SIGMA_VALUES:
+        result = evaluate_run(sigma)
+        if result is not None:
+            run_tag, eval_metrics = result
+            all_eval_results.append({"run_tag": run_tag, **eval_metrics})
+
+    print("\n" + "=" * 70)
+    print("EVALUATION SWEEP COMPLETE")
+    print("=" * 70)
+    for r in all_eval_results:
+        print(f"  sigma={r['sigma']:5.1f}  best_f1={r['best_f1']:.4f}  "
+              f"P={r['precision_at_best']:.3f}  R={r['recall_at_best']:.3f}  "
+              f"-> {r['run_tag']}")
