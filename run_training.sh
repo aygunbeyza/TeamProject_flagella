@@ -2,11 +2,11 @@
 #SBATCH --job-name=flagella_train
 #SBATCH --output=train_log_%j.out
 #SBATCH --error=train_error_%j.err
-#SBATCH --partition=alpha-interactive           # Normal, kısıtlamasız asıl kuyruğumuza döndük
-#SBATCH --time=02:00:00             # Eğitimin rahatça bitmesi için süreyi 3 saate çıkardık
+#SBATCH --partition=alpha
+#SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16           # PyTorch'un işçi uyarısını çözmek için 4 CPU istedik
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --gres=gpu:1
 

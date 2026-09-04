@@ -22,7 +22,7 @@ HM_WEIGHT    = 10
 PATCH        = None      # None -> full-size image kullanilir, kirpma yapilmaz
 
 LR         = 1e-4
-BATCH_SIZE = 8
+BATCH_SIZE = 1            # farkli boyuttaki goruntuler batch stack edilemedigi icin 1 yapildi
 NUM_EPOCHS = 150
 PATIENCE   = 10
 FEATURES   = [32, 64, 128, 256]
