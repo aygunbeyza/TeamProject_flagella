@@ -11,10 +11,10 @@ from PIL import Image
 
 from train_model import UNet, DEVICE, RUN_TAG, RUN_DIR, OUT_ROOT, BASE_DIR, HIT_DIST
 
-MODEL_PATH   = os.path.join(RUN_DIR, "unet_model.pth")
-PROJ_DIR     = "/data/horse/ws/beay097h-teamproject/TeamProject_flagella"
-NEG_SLICES   = 3          # kac negatif slice degerlendirilecek (tomogram basina)
-MIN_DISTANCE = 20
+MODEL_PATH        = os.path.join(RUN_DIR, "unet_model.pth")
+PROJ_DIR          = "/data/horse/ws/beay097h-teamproject/TeamProject_flagella"
+BG_SLICES_PER_TOMO = 3          # kac background slice degerlendirilecek (tomogram basina)
+MIN_DISTANCE      = 20
 
 
 def detect_peaks(heatmap, threshold=0.3, min_distance=MIN_DISTANCE):
@@ -73,23 +73,22 @@ if __name__ == "__main__":
     df = pd.read_csv(os.path.join(BASE_DIR, "train_labels.csv"))
     val_df = df[df["tomo_id"].isin(val_ids)]
 
-    pos_df = val_df[val_df["Number of motors"] > 0]
-    neg_ids = sorted(val_df[val_df["Number of motors"] == 0]["tomo_id"].unique())
-    print(f"val tomograms : {len(val_ids)}  (pos rows {len(pos_df)}, neg tomos {len(neg_ids)})")
+    foreground_df = val_df[val_df["Number of motors"] > 0]
+    background_ids = sorted(val_df[val_df["Number of motors"] == 0]["tomo_id"].unique())
+    print(f"val tomograms : {len(val_ids)}  (foreground rows {len(foreground_df)}, background tomos {len(background_ids)})")
 
-    all_gt, all_hm, is_pos_flag = [], [], []
+    all_gt, all_hm, is_foreground_flag = [], [], []
 
-    # ---- POSITIVE slices ----
-    # ---- POSITIVE slices ----
-    print("\nPredicting on positive slices ...")
-    for (tomo_id, z), group in pos_df.groupby(["tomo_id", "Motor axis 0"]):
+    # ---- FOREGROUND slices ----
+    print("\nPredicting on foreground slices ...")
+    for (tomo_id, z), group in foreground_df.groupby(["tomo_id", "Motor axis 0"]):
         p = os.path.join(BASE_DIR, "train", tomo_id, f"slice_{int(z):04d}.jpg")
         if not os.path.exists(p):
             continue
         gt_list = [[int(r["Motor axis 1"]), int(r["Motor axis 2"])] for _, r in group.iterrows()]
         img_t = torch.from_numpy(load_norm(p)).unsqueeze(0).unsqueeze(0).to(DEVICE)
 
-        # ---- U-Net boyut düzeltmesi (Padding) ----
+        # ---- U-Net size correction (padding) ----
         _, _, h, w = img_t.shape
         pad_h = (16 - h % 16) % 16
         pad_w = (16 - w % 16) % 16
@@ -98,28 +97,27 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             hm = model(img_t).cpu().squeeze().numpy()
-            hm = hm[:h, :w]  # Eklenen fazlalığı kırp ve orijinal boyuta dön
+            hm = hm[:h, :w]  # crop back to original size
             all_hm.append(hm)
-        all_gt.append(gt_list); is_pos_flag.append(True)
+        all_gt.append(gt_list); is_foreground_flag.append(True)
 
-    # ---- NEGATIVE slices (yeni) ----
-    # ---- NEGATIVE slices (yeni) ----
-    print(f"Predicting on negative slices ({NEG_SLICES} per empty tomogram) ...")
+    # ---- BACKGROUND slices ----
+    print(f"Predicting on background slices ({BG_SLICES_PER_TOMO} per empty tomogram) ...")
     rng = np.random.default_rng(0)
-    for tomo_id in neg_ids:
+    for tomo_id in background_ids:
         d = os.path.join(BASE_DIR, "train", tomo_id)
         if not os.path.isdir(d):
             continue
         slices = sorted(f for f in os.listdir(d) if f.endswith(".jpg"))
         if not slices:
             continue
-        lo, hi = int(0.3 * len(slices)), int(0.7 * len(slices))       # orta bolge
+        lo, hi = int(0.3 * len(slices)), int(0.7 * len(slices))       # middle region
         cand = slices[lo:hi] or slices
-        pick = rng.choice(cand, size=min(NEG_SLICES, len(cand)), replace=False)
+        pick = rng.choice(cand, size=min(BG_SLICES_PER_TOMO, len(cand)), replace=False)
         for fn_ in pick:
             img_t = torch.from_numpy(load_norm(os.path.join(d, fn_))).unsqueeze(0).unsqueeze(0).to(DEVICE)
 
-            # ---- U-Net boyut düzeltmesi (Padding) ----
+            # ---- U-Net size correction (padding) ----
             _, _, h, w = img_t.shape
             pad_h = (16 - h % 16) % 16
             pad_w = (16 - w % 16) % 16
@@ -128,9 +126,9 @@ if __name__ == "__main__":
 
             with torch.no_grad():
                 hm = model(img_t).cpu().squeeze().numpy()
-                hm = hm[:h, :w]  # Eklenen fazlalığı kırp ve orijinal boyuta dön
+                hm = hm[:h, :w]  # crop back to original size
                 all_hm.append(hm)
-            all_gt.append([]); is_pos_flag.append(False)
+            all_gt.append([]); is_foreground_flag.append(False)
 
     # ---- threshold sweep ----
     print("\nThreshold sweep ...")
@@ -139,14 +137,14 @@ if __name__ == "__main__":
     for t in thresholds:
         dets = [detect_peaks(hm, threshold=t) for hm in all_hm]
         p, r, f1, tp, fp, fn = evaluate_detections(dets, all_gt)
-        fp_neg = sum(len(d) for d, ip in zip(dets, is_pos_flag) if not ip)
-        fp_pos = fp - fp_neg
+        fp_background = sum(len(d) for d, ip in zip(dets, is_foreground_flag) if not ip)
+        fp_foreground = fp - fp_background
         rows.append({"threshold": round(float(t), 2), "precision": round(p, 4),
                      "recall": round(r, 4), "f1": round(f1, 4),
                      "tp": tp, "fp": fp, "fn": fn,
-                     "fp_on_neg_slices": fp_neg, "fp_on_pos_slices": fp_pos})
+                     "fp_on_background_slices": fp_background, "fp_on_foreground_slices": fp_foreground})
         print(f"  t={t:.2f}  P={p:.3f}  R={r:.3f}  F1={f1:.3f}  "
-              f"TP={tp:4d} FP={fp:5d} (neg {fp_neg:4d}) FN={fn:4d}")
+              f"TP={tp:4d} FP={fp:5d} (background {fp_background:4d}) FN={fn:4d}")
 
     sweep = pd.DataFrame(rows)
     sweep.to_csv(os.path.join(RUN_DIR, "threshold_sweep.csv"), index=False)
@@ -169,8 +167,8 @@ if __name__ == "__main__":
     ax[1].set_xlabel("Threshold"); ax[1].set_title("Metrics vs Threshold")
     ax[1].legend(); ax[1].grid(alpha=.3)
 
-    ax[2].plot(sweep["threshold"], sweep["fp_on_neg_slices"], "m.-", label="FP on negative slices")
-    ax[2].plot(sweep["threshold"], sweep["fp_on_pos_slices"], "c.-", label="FP on positive slices")
+    ax[2].plot(sweep["threshold"], sweep["fp_on_background_slices"], "m.-", label="FP on background slices")
+    ax[2].plot(sweep["threshold"], sweep["fp_on_foreground_slices"], "c.-", label="FP on foreground slices")
     ax[2].set_xlabel("Threshold"); ax[2].set_ylabel("False positives")
     ax[2].set_title("Where do FPs come from?"); ax[2].legend(); ax[2].grid(alpha=.3)
 
@@ -184,9 +182,10 @@ if __name__ == "__main__":
         "best_f1": float(best["f1"]), "best_threshold": float(best["threshold"]),
         "precision_at_best": float(best["precision"]), "recall_at_best": float(best["recall"]),
         "tp": int(best["tp"]), "fp": int(best["fp"]), "fn": int(best["fn"]),
-        "fp_on_neg_slices": int(best["fp_on_neg_slices"]),
-        "fp_on_pos_slices": int(best["fp_on_pos_slices"]),
-        "n_pos_slices": sum(is_pos_flag), "n_neg_slices": len(is_pos_flag) - sum(is_pos_flag),
+        "fp_on_background_slices": int(best["fp_on_background_slices"]),
+        "fp_on_foreground_slices": int(best["fp_on_foreground_slices"]),
+        "n_foreground_slices": sum(is_foreground_flag),
+        "n_background_slices": len(is_foreground_flag) - sum(is_foreground_flag),
         "hit_distance": HIT_DIST,
     }
     with open(os.path.join(RUN_DIR, "eval_metrics.json"), "w") as f:
@@ -202,7 +201,3 @@ if __name__ == "__main__":
 
     print(f"\nSaved -> {RUN_DIR}")
     print(f"Appended -> {csv_path}")
-
-
-
-

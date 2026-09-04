@@ -16,7 +16,7 @@ RUN_TAG      = "run10_resnet_augmented"
 CHANGE_DESC  = "ResNet + Data Augmentation (Rotation & Flips) eklendi."
 BASELINE_TAG = "run08_resnet_sigma12_hm10"
 
-NEG_PER_TOMO = 3         # Negatif oranımız (boş tomogram başına 3 kesit)
+BG_PER_TOMO  = 3         # background ratio (empty tomogram basina 3 kesit)
 HM_WEIGHT    = 10
 SIGMA        = 12.0
 PATCH        = 512
@@ -52,10 +52,10 @@ class ResBlock(nn.Module):
     def __init__(self, ci, co):
         super().__init__()
         self.b = nn.Sequential(
-            nn.Conv2d(ci, co, 3, padding=1, bias=False), 
-            nn.BatchNorm2d(co), 
+            nn.Conv2d(ci, co, 3, padding=1, bias=False),
+            nn.BatchNorm2d(co),
             nn.ReLU(inplace=True),
-            nn.Conv2d(co, co, 3, padding=1, bias=False), 
+            nn.Conv2d(co, co, 3, padding=1, bias=False),
             nn.BatchNorm2d(co)
         )
         self.shortcut = nn.Sequential()
@@ -101,21 +101,20 @@ def weighted_mse(pred, hm, w=HM_WEIGHT):
     return torch.mean(weight * (pred - hm) ** 2)
 
 
-
 if __name__ == "__main__":
 
-# ---------------- data ----------------
+    # ---------------- data ----------------
     with open(os.path.join(BASE_DIR, "train_ids.txt")) as f:
         train_ids = [line.strip() for line in f if line.strip()]
-        
+
     with open(os.path.join(BASE_DIR, "val_ids.txt")) as f:
         val_ids = [line.strip() for line in f if line.strip()]
 
-    train_samples, tp, tn = build_samples(train_ids, neg_per_tomo=NEG_PER_TOMO)
+    train_samples, train_fg, train_bg = build_samples(train_ids, bg_per_tomo=BG_PER_TOMO)
 
-    val_samples,   vp, vn = build_samples(val_ids,   neg_per_tomo=NEG_PER_TOMO)
-    print(f"train  pos={tp:5d}  neg={tn:5d}  total={tp+tn:5d}")
-    print(f"val    pos={vp:5d}  neg={vn:5d}  total={vp+vn:5d}")
+    val_samples, val_fg, val_bg = build_samples(val_ids, bg_per_tomo=BG_PER_TOMO)
+    print(f"train  foreground={train_fg:5d}  background={train_bg:5d}  total={train_fg+train_bg:5d}")
+    print(f"val    foreground={val_fg:5d}  background={val_bg:5d}  total={val_fg+val_bg:5d}")
 
     train_ds = MotorSliceDataset(train_samples, sigma=SIGMA, patch_size=PATCH)
     val_ds   = MotorSliceDataset(val_samples,   sigma=SIGMA, patch_size=PATCH)
@@ -127,7 +126,6 @@ if __name__ == "__main__":
     n_par = sum(p.numel() for p in model.parameters())
     print(f"model params: {n_par:,}\n")
 
-
     # ---------------- train ----------------
     train_losses, val_losses = [], []
     best_val, best_ep, bad = float("inf"), 0, 0
@@ -135,7 +133,7 @@ if __name__ == "__main__":
 
     for ep in range(1, NUM_EPOCHS + 1):
         model.train(); tot = 0.0
-        for img, hm, is_pos in train_loader:
+        for img, hm, is_foreground in train_loader:
             img, hm = img.to(DEVICE), hm.to(DEVICE)
             opt.zero_grad()
             loss = weighted_mse(model(img), hm)
@@ -145,7 +143,7 @@ if __name__ == "__main__":
 
         model.eval(); tot = 0.0
         with torch.no_grad():
-            for img, hm, is_pos in val_loader:
+            for img, hm, is_foreground in val_loader:
                 img, hm = img.to(DEVICE), hm.to(DEVICE)
                 tot += weighted_mse(model(img), hm).item()
         va = tot / len(val_loader)
@@ -177,18 +175,17 @@ if __name__ == "__main__":
     plt.legend(); plt.grid(alpha=.3); plt.tight_layout()
     plt.savefig(os.path.join(RUN_DIR, "loss_curve.png"), dpi=120); plt.close()
 
-
     # ---------------- evaluate ----------------
     model.load_state_dict(torch.load(os.path.join(RUN_DIR, "unet_model.pth")))
     model.eval()
 
-    pos_idx = [i for i, s in enumerate(val_samples) if s[3] == 1]
-    neg_idx = [i for i, s in enumerate(val_samples) if s[3] == 0]
+    foreground_idx = [i for i, s in enumerate(val_samples) if s[3] == 1]
+    background_idx = [i for i, s in enumerate(val_samples) if s[3] == 0]
 
-    print(f"\nEvaluating {len(pos_idx)} positive val samples ...")
+    print(f"\nEvaluating {len(foreground_idx)} foreground val samples ...")
     dists, peaks, hits = [], [], 0
     with torch.no_grad():
-        for i in pos_idx:
+        for i in foreground_idx:
             img_t, hm_t, _ = val_ds[i]
             pred = model(img_t.unsqueeze(0).to(DEVICE)).cpu().squeeze().numpy()
             tgt  = hm_t.squeeze().numpy()
@@ -198,32 +195,31 @@ if __name__ == "__main__":
             dists.append(d); peaks.append(float(pred.max()))
             if d <= HIT_DIST: hits += 1
 
-    recall = hits / len(pos_idx) if pos_idx else 0.0
+    recall = hits / len(foreground_idx) if foreground_idx else 0.0
 
-    neg_peaks = []
+    background_peaks = []
     with torch.no_grad():
-        for i in neg_idx[:200]:
+        for i in background_idx[:200]:
             img_t, _, _ = val_ds[i]
             pred = model(img_t.unsqueeze(0).to(DEVICE)).cpu().squeeze().numpy()
-            neg_peaks.append(float(pred.max()))
+            background_peaks.append(float(pred.max()))
 
     metrics = {
-        "n_pos_eval":        len(pos_idx),
-        "hits":              hits,
-        "recall_at_hitdist": round(recall, 4),
-        "median_dist_px":    round(float(np.median(dists)), 2) if dists else None,
-        "mean_peak_pos":     round(float(np.mean(peaks)), 4) if peaks else None,
-        "mean_peak_neg":     round(float(np.mean(neg_peaks)), 4) if neg_peaks else None,
-        "best_val_loss":     round(best_val, 6),
-        "best_epoch":        best_ep,
-        "epochs_run":        n_ep,
-        "train_time_min":    round(mins, 1),
+        "n_foreground_eval":     len(foreground_idx),
+        "hits":                  hits,
+        "recall_at_hitdist":     round(recall, 4),
+        "median_dist_px":        round(float(np.median(dists)), 2) if dists else None,
+        "mean_peak_foreground":  round(float(np.mean(peaks)), 4) if peaks else None,
+        "mean_peak_background":  round(float(np.mean(background_peaks)), 4) if background_peaks else None,
+        "best_val_loss":         round(best_val, 6),
+        "best_epoch":            best_ep,
+        "epochs_run":            n_ep,
+        "train_time_min":        round(mins, 1),
     }
     print(json.dumps(metrics, indent=2))
 
-
     # ---------------- prediction figure ----------------
-    pick = np.random.default_rng(0).choice(pos_idx, size=min(4, len(pos_idx)), replace=False)
+    pick = np.random.default_rng(0).choice(foreground_idx, size=min(4, len(foreground_idx)), replace=False)
     fig, ax = plt.subplots(len(pick), 3, figsize=(12, 4 * len(pick)))
     if len(pick) == 1: ax = ax[None, :]
     with torch.no_grad():
@@ -249,16 +245,16 @@ if __name__ == "__main__":
     fig.suptitle(f"{RUN_TAG} | {CHANGE_DESC}", fontsize=10)
     plt.tight_layout(); plt.savefig(os.path.join(RUN_DIR, "predictions.png"), dpi=120); plt.close()
 
-
     # ---------------- save records ----------------
     config = {
         "run_tag": RUN_TAG, "change_desc": CHANGE_DESC, "baseline_tag": BASELINE_TAG,
         "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
-        "params": {"neg_per_tomo": NEG_PER_TOMO, "hm_weight": HM_WEIGHT, "sigma": SIGMA,
+        "params": {"bg_per_tomo": BG_PER_TOMO, "hm_weight": HM_WEIGHT, "sigma": SIGMA,
                    "patch": PATCH, "hit_dist": HIT_DIST, "lr": LR,
                    "batch_size": BATCH_SIZE, "features": FEATURES,
                    "num_epochs": NUM_EPOCHS, "patience": PATIENCE},
-        "data": {"train_pos": tp, "train_neg": tn, "val_pos": vp, "val_neg": vn},
+        "data": {"train_foreground": train_fg, "train_background": train_bg,
+                  "val_foreground": val_fg, "val_background": val_bg},
         "model_params": n_par,
     }
     with open(os.path.join(RUN_DIR, "config.json"), "w") as f:
@@ -268,42 +264,42 @@ if __name__ == "__main__":
 
     with open(os.path.join(RUN_DIR, "summary.txt"), "w") as f:
         f.write(f"""{'='*66}
-    RUN      : {RUN_TAG}
-    DATE     : {config['timestamp']}
-    CHANGE   : {CHANGE_DESC}
-    BASELINE : {BASELINE_TAG}
-    {'='*66}
+RUN      : {RUN_TAG}
+DATE     : {config['timestamp']}
+CHANGE   : {CHANGE_DESC}
+BASELINE : {BASELINE_TAG}
+{'='*66}
 
-    PARAMETERS
-      neg_per_tomo : {NEG_PER_TOMO}   <- the only changed variable
-      hm_weight    : {HM_WEIGHT}
-      sigma        : {SIGMA}
-      patch        : {PATCH}
-      hit_dist     : {HIT_DIST} px
-      features     : {FEATURES}
-      lr           : {LR}
-      batch_size   : {BATCH_SIZE}
+PARAMETERS
+  bg_per_tomo  : {BG_PER_TOMO}   <- the only changed variable
+  hm_weight    : {HM_WEIGHT}
+  sigma        : {SIGMA}
+  patch        : {PATCH}
+  hit_dist     : {HIT_DIST} px
+  features     : {FEATURES}
+  lr           : {LR}
+  batch_size   : {BATCH_SIZE}
 
-    DATA
-      train : {tp} pos / {tn} neg
-      val   : {vp} pos / {vn} neg
+DATA
+  train : {train_fg} foreground / {train_bg} background
+  val   : {val_fg} foreground / {val_bg} background
 
-    RESULTS
-      recall @ {HIT_DIST}px : {recall:.3f}   ({hits}/{len(pos_idx)})
-      median dist       : {metrics['median_dist_px']} px
-      mean peak (pos)   : {metrics['mean_peak_pos']}
-      mean peak (neg)   : {metrics['mean_peak_neg']}   <- low is good
-      best val loss     : {best_val:.6f}  (epoch {best_ep})
-      epochs run        : {n_ep}
-      train time        : {mins:.1f} min
+RESULTS
+  recall @ {HIT_DIST}px : {recall:.3f}   ({hits}/{len(foreground_idx)})
+  median dist       : {metrics['median_dist_px']} px
+  mean peak (fg)    : {metrics['mean_peak_foreground']}
+  mean peak (bg)    : {metrics['mean_peak_background']}   <- low is good
+  best val loss     : {best_val:.6f}  (epoch {best_ep})
+  epochs run        : {n_ep}
+  train time        : {mins:.1f} min
 
-    NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
-    {'='*66}
-    """)
+NOTE: hm_weight is unchanged, so val loss IS comparable to the baseline run.
+{'='*66}
+""")
 
     csv_path = os.path.join(OUT_ROOT, "all_runs.csv")
     row = {"run_tag": RUN_TAG, "change": CHANGE_DESC,
-           "neg_per_tomo": NEG_PER_TOMO, "hm_weight": HM_WEIGHT, "sigma": SIGMA,
+           "bg_per_tomo": BG_PER_TOMO, "hm_weight": HM_WEIGHT, "sigma": SIGMA,
            "patch": PATCH, "hit_dist": HIT_DIST, "features": str(FEATURES),
            **metrics}
     write_header = not os.path.exists(csv_path)
