@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from dataset_builder import build_samples, MotorSliceDataset
 
 # ==================================================================
-#  EXPERIMENT SETTINGS
+# EXPERIMENT SETTINGS
 # ==================================================================
 SIGMA_VALUES = [8.0, 10.0, 12.0, 14.0, 16.0]
 HIT_DIST     = 24
@@ -23,70 +23,180 @@ HM_WEIGHT    = 10
 PATCH        = None
 
 LR         = 1e-4
-BATCH_SIZE = 8
+BATCH_SIZE = 1            # farkli boyuttaki full-size goruntuler batch stack edilemedigi icin 1 yapildi
 NUM_EPOCHS = 150
 PATIENCE   = 10
 FEATURES   = [32, 64, 128, 256]
+
+# U-Net 4 kez /2 yaptigi icin 16 kullaniliyor
+PAD_MULTIPLE = 16
+
 # ==================================================================
 
 BASE_DIR = "/data/horse/ws/beay097h-teamproject/flagellar_motors_data"
 PROJ_DIR = "/data/horse/ws/beay097h-teamproject/TeamProject_flagella"
 OUT_ROOT = os.path.join(PROJ_DIR, "output_2")
+
 os.makedirs(OUT_ROOT, exist_ok=True)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-# ---------------- model ----------------
+# ==================================================================
+# BATCH PADDING
+# ==================================================================
+def pad_batch(batch, multiple=PAD_MULTIPLE):
+    """
+    Batch icindeki farkli H x W boyutundaki image/heatmap'leri
+    ayni boyuta getirir.
+
+    H ve W degerleri, batch'teki maksimum boyutun
+    bir sonraki 16 katina yuvarlanir.
+
+    Padding sadece sag ve alta eklenir.
+    Motor koordinatlari degismez.
+    """
+
+    images = []
+    heatmaps = []
+    foreground_flags = []
+
+    max_h = 0
+    max_w = 0
+
+    # ---------------- find maximum size ----------------
+    for img, hm, is_foreground in batch:
+        h = img.shape[-2]
+        w = img.shape[-1]
+
+        max_h = max(max_h, h)
+        max_w = max(max_w, w)
+
+    # ---------------- round to multiple of 16 ----------------
+    target_h = int(np.ceil(max_h / multiple) * multiple)
+    target_w = int(np.ceil(max_w / multiple) * multiple)
+
+    # ---------------- pad each sample ----------------
+    for img, hm, is_foreground in batch:
+
+        h = img.shape[-2]
+        w = img.shape[-1]
+
+        pad_h = target_h - h
+        pad_w = target_w - w
+
+        # Image padding = 0
+        img = F.pad(
+            img,
+            (0, pad_w, 0, pad_h),
+            mode="constant",
+            value=0
+        )
+
+        # Heatmap padding = 0
+        hm = F.pad(
+            hm,
+            (0, pad_w, 0, pad_h),
+            mode="constant",
+            value=0
+        )
+
+        images.append(img)
+        heatmaps.append(hm)
+        foreground_flags.append(is_foreground)
+
+    images = torch.stack(images, dim=0)
+    heatmaps = torch.stack(heatmaps, dim=0)
+    foreground_flags = torch.tensor(
+        foreground_flags,
+        dtype=torch.long
+    )
+
+    return images, heatmaps, foreground_flags
+
+
+# ==================================================================
+# MODEL
+# ==================================================================
 class ResBlock(nn.Module):
+
     def __init__(self, ci, co):
         super().__init__()
 
         self.b = nn.Sequential(
-            nn.Conv2d(ci, co, 3, padding=1, bias=False),
+            nn.Conv2d(
+                ci,
+                co,
+                3,
+                padding=1,
+                bias=False
+            ),
             nn.BatchNorm2d(co),
             nn.ReLU(inplace=True),
-            nn.Conv2d(co, co, 3, padding=1, bias=False),
+
+            nn.Conv2d(
+                co,
+                co,
+                3,
+                padding=1,
+                bias=False
+            ),
             nn.BatchNorm2d(co)
         )
 
         self.shortcut = nn.Sequential()
 
         if ci != co:
+
             self.shortcut = nn.Sequential(
-                nn.Conv2d(ci, co, 1, bias=False),
+                nn.Conv2d(
+                    ci,
+                    co,
+                    1,
+                    bias=False
+                ),
                 nn.BatchNorm2d(co)
             )
 
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        return self.relu(self.b(x) + self.shortcut(x))
+        return self.relu(
+            self.b(x) + self.shortcut(x)
+        )
 
 
 class UNet(nn.Module):
+
     def __init__(self, feat=FEATURES):
+
         super().__init__()
 
         self.downs = nn.ModuleList()
         self.ups = nn.ModuleList()
+
         self.pool = nn.MaxPool2d(2)
 
         c = 1
 
-        # Encoder
+        # ---------------- encoder ----------------
         for f in feat:
-            self.downs.append(ResBlock(c, f))
+
+            self.downs.append(
+                ResBlock(c, f)
+            )
+
             c = f
 
-        # Bottleneck
+        # ---------------- bottleneck ----------------
         self.bottleneck = ResBlock(
             feat[-1],
             feat[-1] * 2
         )
 
-        # Decoder
+        # ---------------- decoder ----------------
         for f in reversed(feat):
+
             self.ups.append(
                 nn.ConvTranspose2d(
                     f * 2,
@@ -97,81 +207,163 @@ class UNet(nn.Module):
             )
 
             self.ups.append(
-                ResBlock(f * 2, f)
+                ResBlock(
+                    f * 2,
+                    f
+                )
             )
 
-        self.final = nn.Conv2d(feat[0], 1, 1)
+        self.final = nn.Conv2d(
+            feat[0],
+            1,
+            1
+        )
 
     def forward(self, x):
+
         skips = []
 
-        # ---------------- Encoder ----------------
+        # ---------------- encoder ----------------
         for d in self.downs:
+
             x = d(x)
+
             skips.append(x)
+
             x = self.pool(x)
 
-        # ---------------- Bottleneck ----------------
+        # ---------------- bottleneck ----------------
         x = self.bottleneck(x)
 
-        # ---------------- Decoder ----------------
+        # ---------------- decoder ----------------
         skips = skips[::-1]
 
-        for i in range(0, len(self.ups), 2):
+        for i in range(
+            0,
+            len(self.ups),
+            2
+        ):
 
-            # Upsampling
             x = self.ups[i](x)
 
-            # Corresponding encoder feature map
-            skip = skips[i // 2]
-
-            # --------------------------------------------------
-            # FIX:
-            # Full-size images may produce a 1-pixel difference
-            # between decoder and encoder spatial dimensions.
-            # Resize decoder output to match the skip connection.
-            # --------------------------------------------------
-            if x.shape[-2:] != skip.shape[-2:]:
-                x = F.interpolate(
-                    x,
-                    size=skip.shape[-2:],
-                    mode="bilinear",
-                    align_corners=False
-                )
-
-            # Concatenate encoder and decoder features
+            # Burada artik boyut mismatch beklenmez,
+            # cunku input 16'nin katina pad edildi.
             x = self.ups[i + 1](
-                torch.cat([skip, x], dim=1)
+                torch.cat(
+                    [
+                        skips[i // 2],
+                        x
+                    ],
+                    dim=1
+                )
             )
 
         return self.final(x)
 
 
-def weighted_mse(pred, hm, w=HM_WEIGHT):
+# ==================================================================
+# LOSS
+# ==================================================================
+def weighted_mse(
+    pred,
+    hm,
+    w=HM_WEIGHT
+):
+
     weight = hm * w + 1.0
-    return torch.mean(weight * (pred - hm) ** 2)
+
+    return torch.mean(
+        weight * (pred - hm) ** 2
+    )
 
 
-# ---------------- single experiment ----------------
-def run_experiment(sigma, train_ids, val_ids):
+# ==================================================================
+# EVALUATION HELPER
+# ==================================================================
+def prepare_single_image(img_t):
+    """
+    Tek goruntuyu model icin 16'nin katina pad eder.
 
-    run_tag = f"sigma{int(sigma):02d}_hitdist{HIT_DIST}"
-    run_dir = os.path.join(OUT_ROOT, run_tag)
-    os.makedirs(run_dir, exist_ok=True)
+    Original H/W degerlerini de dondurur.
+    """
+
+    _, h, w = img_t.shape
+
+    target_h = int(
+        np.ceil(h / PAD_MULTIPLE)
+        * PAD_MULTIPLE
+    )
+
+    target_w = int(
+        np.ceil(w / PAD_MULTIPLE)
+        * PAD_MULTIPLE
+    )
+
+    pad_h = target_h - h
+    pad_w = target_w - w
+
+    padded = F.pad(
+        img_t,
+        (0, pad_w, 0, pad_h),
+        mode="constant",
+        value=0
+    )
+
+    return padded, h, w
+
+
+# ==================================================================
+# SINGLE EXPERIMENT
+# ==================================================================
+def run_experiment(
+    sigma,
+    train_ids,
+    val_ids
+):
+
+    run_tag = (
+        f"sigma{int(sigma):02d}_"
+        f"hitdist{HIT_DIST}"
+    )
+
+    run_dir = os.path.join(
+        OUT_ROOT,
+        run_tag
+    )
+
+    os.makedirs(
+        run_dir,
+        exist_ok=True
+    )
 
     print("=" * 70)
     print(f"RUN      : {run_tag}")
     print(f"CHANGE   : {CHANGE_DESC}")
-    print(f"SIGMA    : {sigma}   HIT_DIST : {HIT_DIST}  (fixed)")
+    print(
+        f"SIGMA    : {sigma}   "
+        f"HIT_DIST : {HIT_DIST}  (fixed)"
+    )
     print(f"OUTPUT   : {run_dir}")
     print(f"DEVICE   : {DEVICE}")
 
     if DEVICE == "cuda":
-        print(f"GPU      : {torch.cuda.get_device_name(0)}")
+
+        print(
+            f"GPU      : "
+            f"{torch.cuda.get_device_name(0)}"
+        )
+
+    print(
+        f"PADDING  : multiple of "
+        f"{PAD_MULTIPLE}"
+    )
 
     print("=" * 70)
 
-    # ---------------- data ----------------
+    # ==================================================================
+    # DATA
+    # ==================================================================
+
     train_samples, train_fg, train_bg = build_samples(
         train_ids,
         bg_per_tomo=BG_PER_TOMO
@@ -206,21 +398,30 @@ def run_experiment(sigma, train_ids, val_ids):
         patch_size=PATCH
     )
 
+    # IMPORTANT:
+    # custom collate_fn ile farkli boyutlardaki image'leri
+    # batch icinde 16'nin katina pad ediyoruz.
+
     train_loader = DataLoader(
         train_ds,
         batch_size=BATCH_SIZE,
         shuffle=True,
-        num_workers=4
+        num_workers=4,
+        collate_fn=pad_batch
     )
 
     val_loader = DataLoader(
         val_ds,
         batch_size=BATCH_SIZE,
         shuffle=False,
-        num_workers=4
+        num_workers=4,
+        collate_fn=pad_batch
     )
 
-    # ---------------- model ----------------
+    # ==================================================================
+    # MODEL
+    # ==================================================================
+
     model = UNet().to(DEVICE)
 
     opt = torch.optim.Adam(
@@ -233,9 +434,14 @@ def run_experiment(sigma, train_ids, val_ids):
         for p in model.parameters()
     )
 
-    print(f"model params: {n_par:,}\n")
+    print(
+        f"model params: {n_par:,}\n"
+    )
 
-    # ---------------- train ----------------
+    # ==================================================================
+    # TRAIN
+    # ==================================================================
+
     train_losses = []
     val_losses = []
 
@@ -245,10 +451,14 @@ def run_experiment(sigma, train_ids, val_ids):
 
     t0 = datetime.datetime.now()
 
-    for ep in range(1, NUM_EPOCHS + 1):
+    for ep in range(
+        1,
+        NUM_EPOCHS + 1
+    ):
 
         # ---------------- training ----------------
         model.train()
+
         tot = 0.0
 
         for img, hm, is_foreground in train_loader:
@@ -259,9 +469,14 @@ def run_experiment(sigma, train_ids, val_ids):
             opt.zero_grad()
 
             pred = model(img)
-            loss = weighted_mse(pred, hm)
+
+            loss = weighted_mse(
+                pred,
+                hm
+            )
 
             loss.backward()
+
             opt.step()
 
             tot += loss.item()
@@ -270,6 +485,7 @@ def run_experiment(sigma, train_ids, val_ids):
 
         # ---------------- validation ----------------
         model.eval()
+
         tot = 0.0
 
         with torch.no_grad():
@@ -280,7 +496,11 @@ def run_experiment(sigma, train_ids, val_ids):
                 hm = hm.to(DEVICE)
 
                 pred = model(img)
-                loss = weighted_mse(pred, hm)
+
+                loss = weighted_mse(
+                    pred,
+                    hm
+                )
 
                 tot += loss.item()
 
@@ -291,7 +511,8 @@ def run_experiment(sigma, train_ids, val_ids):
 
         print(
             f"Epoch {ep:03d}/{NUM_EPOCHS} | "
-            f"Train {tr:.6f} | Val {va:.6f}",
+            f"Train {tr:.6f} | "
+            f"Val {va:.6f}",
             end=""
         )
 
@@ -303,35 +524,48 @@ def run_experiment(sigma, train_ids, val_ids):
 
             torch.save(
                 model.state_dict(),
-                os.path.join(run_dir, "unet_model.pth")
+                os.path.join(
+                    run_dir,
+                    "unet_model.pth"
+                )
             )
 
-            print("  <- best saved")
+            print(
+                "  <- best saved"
+            )
 
         else:
 
             bad += 1
 
             print(
-                f"  (no improve {bad}/{PATIENCE})"
+                f"  (no improve "
+                f"{bad}/{PATIENCE})"
             )
 
             if bad >= PATIENCE:
 
                 print(
-                    f"--- early stop at epoch {ep} ---"
+                    f"--- early stop "
+                    f"at epoch {ep} ---"
                 )
 
                 break
 
     mins = (
-        datetime.datetime.now() - t0
+        datetime.datetime.now()
+        - t0
     ).total_seconds() / 60
 
     n_ep = len(train_losses)
 
-    # ---------------- loss curve ----------------
-    plt.figure(figsize=(8, 5))
+    # ==================================================================
+    # LOSS CURVE
+    # ==================================================================
+
+    plt.figure(
+        figsize=(8, 5)
+    )
 
     plt.plot(
         range(1, n_ep + 1),
@@ -354,32 +588,55 @@ def run_experiment(sigma, train_ids, val_ids):
     )
 
     plt.xlabel("Epoch")
-    plt.ylabel(f"Weighted MSE (hm_w={HM_WEIGHT})")
+
+    plt.ylabel(
+        f"Weighted MSE "
+        f"(hm_w={HM_WEIGHT})"
+    )
+
     plt.title(
-        f"{run_tag}\n{CHANGE_DESC}",
+        f"{run_tag}\n"
+        f"{CHANGE_DESC}",
         fontsize=9
     )
 
     plt.legend()
-    plt.grid(alpha=.3)
+
+    plt.grid(
+        alpha=.3
+    )
+
     plt.tight_layout()
 
     plt.savefig(
-        os.path.join(run_dir, "loss_curve.png"),
+        os.path.join(
+            run_dir,
+            "loss_curve.png"
+        ),
         dpi=120
     )
 
     plt.close()
 
-    # ---------------- evaluate ----------------
+    # ==================================================================
+    # LOAD BEST MODEL
+    # ==================================================================
+
     model.load_state_dict(
         torch.load(
-            os.path.join(run_dir, "unet_model.pth"),
+            os.path.join(
+                run_dir,
+                "unet_model.pth"
+            ),
             map_location=DEVICE
         )
     )
 
     model.eval()
+
+    # ==================================================================
+    # FOREGROUND EVALUATION
+    # ==================================================================
 
     foreground_idx = [
         i
@@ -394,7 +651,8 @@ def run_experiment(sigma, train_ids, val_ids):
     ]
 
     print(
-        f"\nEvaluating {len(foreground_idx)} "
+        f"\nEvaluating "
+        f"{len(foreground_idx)} "
         f"foreground val samples ..."
     )
 
@@ -408,9 +666,22 @@ def run_experiment(sigma, train_ids, val_ids):
 
             img_t, hm_t, _ = val_ds[i]
 
+            # ---------------- image padding ----------------
+            img_pad, orig_h, orig_w = (
+                prepare_single_image(img_t)
+            )
+
             pred = model(
-                img_t.unsqueeze(0).to(DEVICE)
-            ).cpu().squeeze().numpy()
+                img_pad.unsqueeze(0).to(DEVICE)
+            )
+
+            pred = pred.cpu().squeeze().numpy()
+
+            # ---------------- crop back ----------------
+            pred = pred[
+                :orig_h,
+                :orig_w
+            ]
 
             tgt = hm_t.squeeze().numpy()
 
@@ -432,7 +703,10 @@ def run_experiment(sigma, train_ids, val_ids):
             )
 
             dists.append(d)
-            peaks.append(float(pred.max()))
+
+            peaks.append(
+                float(pred.max())
+            )
 
             if d <= HIT_DIST:
                 hits += 1
@@ -443,6 +717,10 @@ def run_experiment(sigma, train_ids, val_ids):
         else 0.0
     )
 
+    # ==================================================================
+    # BACKGROUND EVALUATION
+    # ==================================================================
+
     background_peaks = []
 
     with torch.no_grad():
@@ -451,53 +729,122 @@ def run_experiment(sigma, train_ids, val_ids):
 
             img_t, _, _ = val_ds[i]
 
+            img_pad, orig_h, orig_w = (
+                prepare_single_image(img_t)
+            )
+
             pred = model(
-                img_t.unsqueeze(0).to(DEVICE)
-            ).cpu().squeeze().numpy()
+                img_pad.unsqueeze(0).to(DEVICE)
+            )
+
+            pred = pred.cpu().squeeze().numpy()
+
+            pred = pred[
+                :orig_h,
+                :orig_w
+            ]
 
             background_peaks.append(
                 float(pred.max())
             )
 
+    # ==================================================================
+    # METRICS
+    # ==================================================================
+
     metrics = {
+
         "sigma": sigma,
+
         "hit_distance": HIT_DIST,
-        "n_foreground_eval": len(foreground_idx),
-        "hits": hits,
-        "recall_at_hitdist": round(recall, 4),
-        "median_dist_px": (
-            round(float(np.median(dists)), 2)
-            if dists else None
-        ),
-        "mean_peak_foreground": (
-            round(float(np.mean(peaks)), 4)
-            if peaks else None
-        ),
-        "mean_peak_background": (
-            round(float(np.mean(background_peaks)), 4)
-            if background_peaks else None
-        ),
-        "best_val_loss": round(best_val, 6),
-        "best_epoch": best_ep,
-        "epochs_run": n_ep,
-        "train_time_min": round(mins, 1),
+
+        "n_foreground_eval":
+            len(foreground_idx),
+
+        "hits":
+            hits,
+
+        "recall_at_hitdist":
+            round(recall, 4),
+
+        "median_dist_px":
+            (
+                round(
+                    float(np.median(dists)),
+                    2
+                )
+                if dists
+                else None
+            ),
+
+        "mean_peak_foreground":
+            (
+                round(
+                    float(np.mean(peaks)),
+                    4
+                )
+                if peaks
+                else None
+            ),
+
+        "mean_peak_background":
+            (
+                round(
+                    float(
+                        np.mean(
+                            background_peaks
+                        )
+                    ),
+                    4
+                )
+                if background_peaks
+                else None
+            ),
+
+        "best_val_loss":
+            round(best_val, 6),
+
+        "best_epoch":
+            best_ep,
+
+        "epochs_run":
+            n_ep,
+
+        "train_time_min":
+            round(mins, 1)
     }
 
-    print(json.dumps(metrics, indent=2))
+    print(
+        json.dumps(
+            metrics,
+            indent=2
+        )
+    )
 
-    # ---------------- prediction figure ----------------
+    # ==================================================================
+    # PREDICTION FIGURE
+    # ==================================================================
+
     if foreground_idx:
 
-        pick = np.random.default_rng(0).choice(
+        pick = np.random.default_rng(
+            0
+        ).choice(
             foreground_idx,
-            size=min(4, len(foreground_idx)),
+            size=min(
+                4,
+                len(foreground_idx)
+            ),
             replace=False
         )
 
         fig, ax = plt.subplots(
             len(pick),
             3,
-            figsize=(12, 4 * len(pick))
+            figsize=(
+                12,
+                4 * len(pick)
+            )
         )
 
         if len(pick) == 1:
@@ -509,12 +856,38 @@ def run_experiment(sigma, train_ids, val_ids):
 
                 img_t, hm_t, _ = val_ds[i]
 
-                pred = model(
-                    img_t.unsqueeze(0).to(DEVICE)
-                ).cpu().squeeze().numpy()
+                img_pad, orig_h, orig_w = (
+                    prepare_single_image(img_t)
+                )
 
-                img = img_t.squeeze().numpy()
-                tgt = hm_t.squeeze().numpy()
+                pred = model(
+                    img_pad.unsqueeze(0)
+                    .to(DEVICE)
+                )
+
+                pred = (
+                    pred
+                    .cpu()
+                    .squeeze()
+                    .numpy()
+                )
+
+                pred = pred[
+                    :orig_h,
+                    :orig_w
+                ]
+
+                img = (
+                    img_t
+                    .squeeze()
+                    .numpy()
+                )
+
+                tgt = (
+                    hm_t
+                    .squeeze()
+                    .numpy()
+                )
 
                 ty, tx = np.unravel_index(
                     tgt.argmax(),
@@ -547,7 +920,9 @@ def run_experiment(sigma, train_ids, val_ids):
                 )
 
                 ax[r, 0].set_title(
-                    f"input  (tomo {val_samples[i][0]})",
+                    f"input "
+                    f"(tomo "
+                    f"{val_samples[i][0]})",
                     fontsize=8
                 )
 
@@ -557,7 +932,8 @@ def run_experiment(sigma, train_ids, val_ids):
                 )
 
                 ax[r, 1].set_title(
-                    f"target  sigma={sigma}",
+                    f"target "
+                    f"sigma={sigma}",
                     fontsize=8
                 )
 
@@ -583,73 +959,152 @@ def run_experiment(sigma, train_ids, val_ids):
                 )
 
                 ax[r, 2].set_title(
-                    f"pred  d={d:.0f}px  "
-                    f"max={pred.max():.3f}  "
+                    f"pred  "
+                    f"d={d:.0f}px  "
+                    f"max="
+                    f"{pred.max():.3f}  "
                     f"{'HIT' if ok else 'MISS'}",
                     fontsize=8,
-                    color="green" if ok else "red"
+                    color=(
+                        "green"
+                        if ok
+                        else "red"
+                    )
                 )
 
                 for c in range(3):
                     ax[r, c].axis("off")
 
         fig.suptitle(
-            f"{run_tag} | {CHANGE_DESC}",
+            f"{run_tag} | "
+            f"{CHANGE_DESC}",
             fontsize=10
         )
 
         plt.tight_layout()
 
         plt.savefig(
-            os.path.join(run_dir, "predictions.png"),
+            os.path.join(
+                run_dir,
+                "predictions.png"
+            ),
             dpi=120
         )
 
         plt.close()
 
-    # ---------------- save records ----------------
+    # ==================================================================
+    # SAVE CONFIG
+    # ==================================================================
+
     config = {
+
         "run_tag": run_tag,
-        "change_desc": CHANGE_DESC,
-        "baseline_tag": BASELINE_TAG,
-        "timestamp": datetime.datetime.now().isoformat(
-            timespec="seconds"
-        ),
+
+        "change_desc":
+            CHANGE_DESC,
+
+        "baseline_tag":
+            BASELINE_TAG,
+
+        "timestamp":
+            datetime.datetime.now()
+            .isoformat(
+                timespec="seconds"
+            ),
+
         "params": {
-            "sigma": sigma,
-            "hit_dist": HIT_DIST,
-            "bg_per_tomo": BG_PER_TOMO,
-            "hm_weight": HM_WEIGHT,
-            "patch": PATCH,
-            "lr": LR,
-            "batch_size": BATCH_SIZE,
-            "features": FEATURES,
-            "num_epochs": NUM_EPOCHS,
-            "patience": PATIENCE
+
+            "sigma":
+                sigma,
+
+            "hit_dist":
+                HIT_DIST,
+
+            "bg_per_tomo":
+                BG_PER_TOMO,
+
+            "hm_weight":
+                HM_WEIGHT,
+
+            "patch":
+                PATCH,
+
+            "lr":
+                LR,
+
+            "batch_size":
+                BATCH_SIZE,
+
+            "features":
+                FEATURES,
+
+            "num_epochs":
+                NUM_EPOCHS,
+
+            "patience":
+                PATIENCE,
+
+            "pad_multiple":
+                PAD_MULTIPLE
         },
+
         "data": {
-            "train_foreground": train_fg,
-            "train_background": train_bg,
-            "val_foreground": val_fg,
-            "val_background": val_bg
+
+            "train_foreground":
+                train_fg,
+
+            "train_background":
+                train_bg,
+
+            "val_foreground":
+                val_fg,
+
+            "val_background":
+                val_bg
         },
-        "model_params": n_par
+
+        "model_params":
+            n_par
     }
 
     with open(
-        os.path.join(run_dir, "config.json"),
+        os.path.join(
+            run_dir,
+            "config.json"
+        ),
         "w"
     ) as f:
-        json.dump(config, f, indent=2)
+
+        json.dump(
+            config,
+            f,
+            indent=2
+        )
 
     with open(
-        os.path.join(run_dir, "metrics.json"),
+        os.path.join(
+            run_dir,
+            "metrics.json"
+        ),
         "w"
     ) as f:
-        json.dump(metrics, f, indent=2)
+
+        json.dump(
+            metrics,
+            f,
+            indent=2
+        )
+
+    # ==================================================================
+    # SUMMARY
+    # ==================================================================
 
     with open(
-        os.path.join(run_dir, "summary.txt"),
+        os.path.join(
+            run_dir,
+            "summary.txt"
+        ),
         "w"
     ) as f:
 
@@ -662,32 +1117,40 @@ BASELINE : {BASELINE_TAG}
 {'=' * 66}
 
 PARAMETERS
-  sigma        : {sigma}   <- swept variable
-  hit_dist     : {HIT_DIST} px   <- FIXED across all sigma runs
+  sigma        : {sigma}
+  hit_dist     : {HIT_DIST} px
   bg_per_tomo  : {BG_PER_TOMO}
   hm_weight    : {HM_WEIGHT}
   patch        : {PATCH}
   features     : {FEATURES}
   lr           : {LR}
   batch_size   : {BATCH_SIZE}
+  pad_multiple : {PAD_MULTIPLE}
 
 DATA
   train : {train_fg} foreground / {train_bg} background
   val   : {val_fg} foreground / {val_bg} background
 
 RESULTS
-  recall @ {HIT_DIST}px : {recall:.3f}   ({hits}/{len(foreground_idx)})
+  recall @ {HIT_DIST}px : {recall:.3f} ({hits}/{len(foreground_idx)})
   median dist       : {metrics['median_dist_px']} px
   mean peak (fg)    : {metrics['mean_peak_foreground']}
-  mean peak (bg)    : {metrics['mean_peak_background']}   <- low is good
-  best val loss     : {best_val:.6f}  (epoch {best_ep})
+  mean peak (bg)    : {metrics['mean_peak_background']} <- low is good
+  best val loss     : {best_val:.6f} (epoch {best_ep})
   epochs run        : {n_ep}
   train time        : {mins:.1f} min
 
-NOTE: hit_distance is fixed across all sigma runs so results are comparable.
+NOTE:
+Input images are padded to a multiple of 16 before entering the U-Net.
+Predictions are cropped back to the original image dimensions.
+Hit distance is fixed across all sigma runs.
 {'=' * 66}
 """
         )
+
+    # ==================================================================
+    # ALL RUNS CSV
+    # ==================================================================
 
     csv_path = os.path.join(
         OUT_ROOT,
@@ -695,18 +1158,37 @@ NOTE: hit_distance is fixed across all sigma runs so results are comparable.
     )
 
     row = {
-        "run_tag": run_tag,
-        "change": CHANGE_DESC,
-        "sigma": sigma,
-        "hit_dist": HIT_DIST,
-        "bg_per_tomo": BG_PER_TOMO,
-        "hm_weight": HM_WEIGHT,
-        "patch": PATCH,
-        "features": str(FEATURES),
+
+        "run_tag":
+            run_tag,
+
+        "change":
+            CHANGE_DESC,
+
+        "sigma":
+            sigma,
+
+        "hit_dist":
+            HIT_DIST,
+
+        "bg_per_tomo":
+            BG_PER_TOMO,
+
+        "hm_weight":
+            HM_WEIGHT,
+
+        "patch":
+            PATCH,
+
+        "features":
+            str(FEATURES),
+
         **metrics
     }
 
-    write_header = not os.path.exists(csv_path)
+    write_header = not os.path.exists(
+        csv_path
+    )
 
     with open(
         csv_path,
@@ -716,7 +1198,9 @@ NOTE: hit_distance is fixed across all sigma runs so results are comparable.
 
         w = csv.DictWriter(
             f,
-            fieldnames=list(row.keys())
+            fieldnames=list(
+                row.keys()
+            )
         )
 
         if write_header:
@@ -724,23 +1208,40 @@ NOTE: hit_distance is fixed across all sigma runs so results are comparable.
 
         w.writerow(row)
 
-    print(f"\nSaved -> {run_dir}")
-    print(f"Appended -> {csv_path}")
+    print(
+        f"\nSaved -> {run_dir}"
+    )
+
+    print(
+        f"Appended -> {csv_path}"
+    )
 
     print(
         open(
-            os.path.join(run_dir, "summary.txt")
+            os.path.join(
+                run_dir,
+                "summary.txt"
+            )
         ).read()
     )
 
-    return run_tag, run_dir, metrics
+    return (
+        run_tag,
+        run_dir,
+        metrics
+    )
 
 
-# ---------------- sweep entry point ----------------
+# ==================================================================
+# SWEEP ENTRY POINT
+# ==================================================================
 if __name__ == "__main__":
 
     with open(
-        os.path.join(BASE_DIR, "train_ids.txt")
+        os.path.join(
+            BASE_DIR,
+            "train_ids.txt"
+        )
     ) as f:
 
         train_ids = [
@@ -750,7 +1251,10 @@ if __name__ == "__main__":
         ]
 
     with open(
-        os.path.join(BASE_DIR, "val_ids.txt")
+        os.path.join(
+            BASE_DIR,
+            "val_ids.txt"
+        )
     ) as f:
 
         val_ids = [
@@ -763,20 +1267,32 @@ if __name__ == "__main__":
 
     for sigma in SIGMA_VALUES:
 
-        run_tag, run_dir, metrics = run_experiment(
-            sigma,
-            train_ids,
-            val_ids
+        run_tag, run_dir, metrics = (
+            run_experiment(
+                sigma,
+                train_ids,
+                val_ids
+            )
         )
 
-        all_results.append({
-            "run_tag": run_tag,
-            **metrics
-        })
+        all_results.append(
+            {
+                "run_tag": run_tag,
+                **metrics
+            }
+        )
 
-    print("\n" + "=" * 70)
-    print("SIGMA SWEEP COMPLETE")
-    print("=" * 70)
+    print(
+        "\n" + "=" * 70
+    )
+
+    print(
+        "SIGMA SWEEP COMPLETE"
+    )
+
+    print(
+        "=" * 70
+    )
 
     for r in all_results:
 

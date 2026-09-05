@@ -8,7 +8,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:A100:1
+#SBATCH --exclude=i8023
 
 
 # Activate the Conda environment using the full path
