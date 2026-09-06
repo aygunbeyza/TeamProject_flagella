@@ -1,0 +1,6 @@
+run_tag,change,sigma,hit_dist,bg_per_tomo,hm_weight,patch,features,hit_distance,n_foreground_eval,hits,recall_at_hitdist,median_dist_px,mean_peak_foreground,mean_peak_background,best_val_loss,best_epoch,epochs_run,train_time_min
+sigma08_hitdist24,Sigma sweep (hit_distance sabit tutuldu).,8.0,24,3,10,,"[32, 64, 128, 256]",24,96,58,0.6042,6.52,0.4871,0.0292,0.000454,21,31,39.7
+sigma10_hitdist24,Sigma sweep (hit_distance sabit tutuldu).,10.0,24,3,10,,"[32, 64, 128, 256]",24,96,54,0.5625,10.12,0.4148,0.03,0.000721,23,33,42.2
+sigma12_hitdist24,Sigma sweep (hit_distance sabit tutuldu).,12.0,24,3,10,,"[32, 64, 128, 256]",24,96,59,0.6146,8.06,0.5008,0.0457,0.000893,15,25,32.0
+sigma14_hitdist24,Sigma sweep (hit_distance sabit tutuldu).,14.0,24,3,10,,"[32, 64, 128, 256]",24,96,64,0.6667,6.71,0.6258,0.0312,0.001156,31,41,52.4
+sigma16_hitdist24,Sigma sweep (hit_distance sabit tutuldu).,16.0,24,3,10,,"[32, 64, 128, 256]",24,96,55,0.5729,8.77,0.6424,0.0612,0.001489,28,38,48.6

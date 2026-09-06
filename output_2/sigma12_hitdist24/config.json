@@ -1,0 +1,31 @@
+{
+  "run_tag": "sigma12_hitdist24",
+  "change_desc": "Sigma sweep (hit_distance sabit tutuldu).",
+  "baseline_tag": "run08_resnet_sigma12_hm10",
+  "timestamp": "2026-09-05T18:22:08",
+  "params": {
+    "sigma": 12.0,
+    "hit_dist": 24,
+    "bg_per_tomo": 3,
+    "hm_weight": 10,
+    "patch": null,
+    "lr": 0.0001,
+    "batch_size": 1,
+    "features": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "num_epochs": 150,
+    "patience": 10,
+    "pad_multiple": 16
+  },
+  "data": {
+    "train_foreground": 355,
+    "train_background": 699,
+    "val_foreground": 96,
+    "val_background": 159
+  },
+  "model_params": 8113601
+}
