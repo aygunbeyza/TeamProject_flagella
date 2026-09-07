@@ -2,13 +2,13 @@
   "sigma": 16.0,
   "hit_distance": 24,
   "n_foreground_eval": 96,
-  "hits": 55,
-  "recall_at_hitdist": 0.5729,
-  "median_dist_px": 8.77,
-  "mean_peak_foreground": 0.6424,
-  "mean_peak_background": 0.0612,
-  "best_val_loss": 0.001489,
-  "best_epoch": 28,
-  "epochs_run": 38,
-  "train_time_min": 48.6
+  "hits": 66,
+  "recall_at_hitdist": 0.6875,
+  "median_dist_px": 6.08,
+  "mean_peak_foreground": 0.5287,
+  "mean_peak_background": 0.0269,
+  "best_val_loss": 0.001588,
+  "best_epoch": 49,
+  "epochs_run": 59,
+  "train_time_min": 74.8
 }

@@ -1,0 +1,14 @@
+{
+  "sigma": 12.0,
+  "hit_distance": 24,
+  "n_foreground_eval": 96,
+  "hits": 59,
+  "recall_at_hitdist": 0.6146,
+  "median_dist_px": 8.06,
+  "mean_peak_foreground": 0.5008,
+  "mean_peak_background": 0.0457,
+  "best_val_loss": 0.000893,
+  "best_epoch": 15,
+  "epochs_run": 25,
+  "train_time_min": 32.0
+}

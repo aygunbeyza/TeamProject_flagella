@@ -1,0 +1,36 @@
+==================================================================
+RUN      : sigma08_hitdist24
+DATE     : 2026-09-05T17:07:11
+CHANGE   : Sigma sweep (hit_distance sabit tutuldu).
+BASELINE : run08_resnet_sigma12_hm10
+==================================================================
+
+PARAMETERS
+  sigma        : 8.0
+  hit_dist     : 24 px
+  bg_per_tomo  : 3
+  hm_weight    : 10
+  patch        : None
+  features     : [32, 64, 128, 256]
+  lr           : 0.0001
+  batch_size   : 1
+  pad_multiple : 16
+
+DATA
+  train : 355 foreground / 699 background
+  val   : 96 foreground / 159 background
+
+RESULTS
+  recall @ 24px : 0.604 (58/96)
+  median dist       : 6.52 px
+  mean peak (fg)    : 0.4871
+  mean peak (bg)    : 0.0292 <- low is good
+  best val loss     : 0.000454 (epoch 21)
+  epochs run        : 31
+  train time        : 39.7 min
+
+NOTE:
+Input images are padded to a multiple of 16 before entering the U-Net.
+Predictions are cropped back to the original image dimensions.
+Hit distance is fixed across all sigma runs.
+==================================================================

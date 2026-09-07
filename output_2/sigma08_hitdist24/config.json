@@ -2,7 +2,7 @@
   "run_tag": "sigma08_hitdist24",
   "change_desc": "Sigma sweep (hit_distance sabit tutuldu).",
   "baseline_tag": "run08_resnet_sigma12_hm10",
-  "timestamp": "2026-09-05T17:07:11",
+  "timestamp": "2026-09-06T19:44:32",
   "params": {
     "sigma": 8.0,
     "hit_dist": 24,

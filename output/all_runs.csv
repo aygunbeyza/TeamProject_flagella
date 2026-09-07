@@ -1,2 +1,11 @@
 run_tag,change,neg_per_tomo,hm_weight,sigma,patch,hit_dist,features,n_pos_eval,hits,recall_at_hitdist,median_dist_px,mean_peak_pos,mean_peak_neg,best_val_loss,best_epoch,epochs_run,train_time_min
 run01_negatives_only,Negative samples added to dataset (neg_per_tomo=3). Nothing else changed.,3,100.0,6.0,512,30,"[32, 64, 128, 256]",96,62,0.6458,4.74,0.7137,0.3201,0.003535,22,32,9.8
+run02_sigma_10,Sigma 10.0 yapildi ve hit_dist 2*sigma (20) olarak dinamiklestirildi.,3,100.0,10.0,512,20,"[32, 64, 128, 256]",96,65,0.6771,5.61,0.9052,0.3982,0.007504,23,33,10.1
+run03_sigma_12,Sigma changed 10 to 12.0 ,3,100.0,12.0,512,24,"[32, 64, 128, 256]",96,68,0.7083,5.1,0.8042,0.2735,0.009583,33,43,13.7
+run04_sigma_14,Sigma changed 12 to 14.0 ,3,100.0,14.0,512,28,"[32, 64, 128, 256]",96,65,0.6771,7.25,0.9138,0.3816,0.014647,14,24,7.4
+run05_sigma12_hm20,HM_WEIGHT 100'den 20'ye dusuruldu.,3,20,12.0,512,24,"[32, 64, 128, 256]",96,72,0.75,5.66,0.8524,0.2798,0.002331,41,51,15.5
+run06_sigma12_hm10,HM_WEIGHT 20'den 10'ye dusuruldu.,3,10,12.0,512,24,"[32, 64, 128, 256]",96,74,0.7708,5.61,0.6836,0.08,0.001585,31,41,12.4
+run07_sigma12_hm30,HM_WEIGHT 10'den 30'ye dusuruldu.,3,30,12.0,512,24,"[32, 64, 128, 256]",96,73,0.7604,5.66,0.7486,0.1718,0.0037,31,41,12.4
+run08_sigma12_hm7,HM_WEIGHT 30'den 7'ye dusuruldu.,3,7,12.0,512,24,"[32, 64, 128, 256]",96,71,0.7396,5.61,0.7065,0.1904,0.001222,43,53,16.0
+run08_resnet_sigma12_hm10,ResNet (ResBlock) mimarisi eklendi.,3,10,12.0,512,24,"[32, 64, 128, 256]",96,69,0.7188,5.46,0.7387,0.165,0.001606,39,49,17.7
+run10_resnet_augmented,ResNet + Data Augmentation (Rotation & Flips) eklendi.,3,10,12.0,512,24,"[32, 64, 128, 256]",96,76,0.7917,5.0,0.7146,0.1589,0.001387,40,50,18.5

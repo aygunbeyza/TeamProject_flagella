@@ -1,6 +1,6 @@
 ==================================================================
 RUN      : sigma12_hitdist24
-DATE     : 2026-09-05T18:22:08
+DATE     : 2026-09-06T21:00:12
 CHANGE   : Sigma sweep (hit_distance sabit tutuldu).
 BASELINE : run08_resnet_sigma12_hm10
 ==================================================================
@@ -21,13 +21,13 @@ DATA
   val   : 96 foreground / 159 background
 
 RESULTS
-  recall @ 24px : 0.615 (59/96)
-  median dist       : 8.06 px
-  mean peak (fg)    : 0.5008
-  mean peak (bg)    : 0.0457 <- low is good
-  best val loss     : 0.000893 (epoch 15)
-  epochs run        : 25
-  train time        : 32.0 min
+  recall @ 24px : 0.729 (70/96)
+  median dist       : 6.36 px
+  mean peak (fg)    : 0.6751
+  mean peak (bg)    : 0.0602 <- low is good
+  best val loss     : 0.000911 (epoch 18)
+  epochs run        : 28
+  train time        : 35.5 min
 
 NOTE:
 Input images are padded to a multiple of 16 before entering the U-Net.
