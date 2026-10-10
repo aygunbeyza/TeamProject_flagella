@@ -13,7 +13,7 @@ from dataset_builder import build_samples, MotorSliceDataset
 # ==================================================================
 # EXPERIMENT SETTINGS
 # ==================================================================
-SIGMA_VALUES = [8.0, 10.0, 12.0, 14.0, 16.0]
+SIGMA_VALUES = [8.0, 10.0, 12.0, 14.0, 16.0]   # pixel size normalizasyonu sonrasi tekrar tam sweep
 HIT_DIST     = 24
 CHANGE_DESC  = "Sigma sweep (hit_distance sabit tutuldu)."
 BASELINE_TAG = "run08_resnet_sigma12_hm10"

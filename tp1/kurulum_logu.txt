@@ -1,0 +1,54 @@
+nohup: ignoring input
+Module Miniconda3/25.5.1-1 loaded.
+Defaulting to user installation because normal site-packages is not writeable
+Collecting torchvision
+  Downloading torchvision-0.28.0-cp313-cp313-manylinux_2_28_x86_64.whl.metadata (5.6 kB)
+Requirement already satisfied: numpy in /home/beay097h/.local/lib/python3.13/site-packages (from torchvision) (2.5.0)
+Collecting torch==2.13.0 (from torchvision)
+  Downloading torch-2.13.0-cp313-cp313-manylinux_2_28_x86_64.whl.metadata (38 kB)
+Requirement already satisfied: pillow!=8.3.*,>=5.3.0 in /home/beay097h/.local/lib/python3.13/site-packages (from torchvision) (12.2.0)
+Requirement already satisfied: filelock in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (3.29.4)
+Requirement already satisfied: typing-extensions>=4.10.0 in /software/rome/r25.06/Miniconda3/25.5.1-1/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (4.12.2)
+Requirement already satisfied: setuptools>=77.0.3 in /software/rome/r25.06/Miniconda3/25.5.1-1/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (78.1.1)
+Requirement already satisfied: sympy>=1.13.3 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (1.14.0)
+Requirement already satisfied: networkx>=2.5.1 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (3.6.1)
+Requirement already satisfied: jinja2 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (3.1.6)
+Requirement already satisfied: fsspec>=0.8.5 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (2026.6.0)
+Collecting cuda-toolkit==13.0.3 (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision)
+  Using cached cuda_toolkit-13.0.3.0-py2.py3-none-any.whl.metadata (17 kB)
+Requirement already satisfied: cuda-bindings<14,>=13.0.3 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (13.3.1)
+Requirement already satisfied: nvidia-cudnn-cu13==9.20.0.48 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (9.20.0.48)
+Requirement already satisfied: nvidia-cusparselt-cu13==0.8.1 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (0.8.1)
+Requirement already satisfied: nvidia-nccl-cu13==2.29.7 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (2.29.7)
+Requirement already satisfied: nvidia-nvshmem-cu13==3.4.5 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (3.4.5)
+Requirement already satisfied: triton==3.7.1 in /home/beay097h/.local/lib/python3.13/site-packages (from torch==2.13.0->torchvision) (3.7.1)
+Requirement already satisfied: nvidia-cublas==13.1.1.3.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (13.1.1.3)
+Requirement already satisfied: nvidia-cuda-nvrtc==13.0.88.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (13.0.88)
+Requirement already satisfied: nvidia-cuda-runtime==13.0.96.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (13.0.96)
+Requirement already satisfied: nvidia-cufft==12.0.0.61.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (12.0.0.61)
+Requirement already satisfied: nvidia-nvjitlink<14,>=13.0.88 in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (13.0.88)
+Requirement already satisfied: nvidia-cufile==1.15.1.6.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (1.15.1.6)
+Requirement already satisfied: nvidia-cuda-cupti==13.0.85.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (13.0.85)
+Requirement already satisfied: nvidia-curand==10.4.0.35.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (10.4.0.35)
+Requirement already satisfied: nvidia-cusolver==12.0.4.66.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (12.0.4.66)
+Requirement already satisfied: nvidia-cusparse==12.6.3.3.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (12.6.3.3)
+Requirement already satisfied: nvidia-nvtx==13.0.85.* in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.0.3; platform_system == "Linux"->torch==2.13.0->torchvision) (13.0.85)
+Requirement already satisfied: cuda-pathfinder>=1.4.2 in /home/beay097h/.local/lib/python3.13/site-packages (from cuda-bindings<14,>=13.0.3->torch==2.13.0->torchvision) (1.5.5)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /home/beay097h/.local/lib/python3.13/site-packages (from sympy>=1.13.3->torch==2.13.0->torchvision) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in /home/beay097h/.local/lib/python3.13/site-packages (from jinja2->torch==2.13.0->torchvision) (3.0.3)
+Downloading torchvision-0.28.0-cp313-cp313-manylinux_2_28_x86_64.whl (7.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.7/7.7 MB 95.4 MB/s eta 0:00:00
+Downloading torch-2.13.0-cp313-cp313-manylinux_2_28_x86_64.whl (526.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 526.6/526.6 MB 59.3 MB/s eta 0:00:00
+Using cached cuda_toolkit-13.0.3.0-py2.py3-none-any.whl (2.5 kB)
+Installing collected packages: cuda-toolkit, torch, torchvision
+  Attempting uninstall: cuda-toolkit
+    Found existing installation: cuda-toolkit 13.0.2
+    Uninstalling cuda-toolkit-13.0.2:
+      Successfully uninstalled cuda-toolkit-13.0.2
+  Attempting uninstall: torch
+    Found existing installation: torch 2.12.1
+    Uninstalling torch-2.12.1:
+      Successfully uninstalled torch-2.12.1
+
+Successfully installed cuda-toolkit-13.0.3.0 torch-2.13.0 torchvision-0.28.0
