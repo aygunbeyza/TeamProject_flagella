@@ -1,0 +1,13 @@
+{
+  "model": "yolo",
+  "checkpoint": "last",
+  "split": "val",
+  "n_images_timed": 250,
+  "warmup_excluded": 5,
+  "device": "cuda",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "forward_ms_mean": 8.547706915531307,
+  "forward_ms_median": 8.203138495446183,
+  "end_to_end_ms_mean": 23.884722820250317,
+  "note": "forward = network only (ultralytics 'inference' time); end_to_end = predict() call incl. image read, letterbox, forward and NMS"
+}

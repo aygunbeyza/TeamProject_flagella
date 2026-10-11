@@ -1,0 +1,20 @@
+{
+  "n_missing_motor_slices": 0,
+  "bg_per_tomo": 3,
+  "seed": 0,
+  "reference_spacing": 15.6,
+  "voxel_spacing_min": 6.5,
+  "voxel_spacing_max": 19.7,
+  "train": {
+    "tomograms": 519,
+    "motor_slices": 354,
+    "background_slices": 699,
+    "gt_motors": 355
+  },
+  "val": {
+    "tomograms": 129,
+    "motor_slices": 96,
+    "background_slices": 159,
+    "gt_motors": 96
+  }
+}

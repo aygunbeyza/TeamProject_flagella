@@ -1,0 +1,36 @@
+==============================================================================
+EXPERIMENT : yolo / yolov8m_scratch_bg3_ep40_seed0_box32
+SPLIT      : val
+==============================================================================
+
+SETTINGS
+  bg_per_tomo=3, epochs=40, batch_size=8, seed=0
+  train: 354 motor / 699 background slices
+  val  : 96 motor / 159 background slices
+
+EVALUATION PROTOCOL
+  hit distance : 24 px at 15.6 spacing (= 374.4 physical units)
+  val slices   : 255 (96 motor, 159 background), 96 ground-truth motors
+
+RESULTS - all validation slices (motor + background)
+  AP (area under PR curve) : 0.6242
+  best F1 : thr=0.25  P=0.843  R=0.615  F1=0.711  F2=0.650  TP=59 FP=11 FN=37 (FP on background slices: 3)
+  best F2 : thr=0.15  P=0.756  R=0.646  F1=0.697  F2=0.665  TP=62 FP=20 FN=34 (FP on background slices: 4)
+  fixed   : thr=0.50  P=0.000  R=0.000  F1=0.000  F2=0.000  TP=0 FP=0 FN=96 (FP on background slices: 0)
+  false alarms per background slice @best F1 : 0.019
+  median localisation error @best F1         : 3.6 px (original pixels)
+
+RESULTS - motor slices only (no background slices)
+  AP : 0.6370
+  best F1 : thr=0.25  P=0.881  R=0.615  F1=0.724  F2=0.654  TP=59 FP=8 FN=37 (FP on background slices: 0)
+  best F2 : thr=0.15  P=0.795  R=0.646  F1=0.713  F2=0.671  TP=62 FP=16 FN=34 (FP on background slices: 0)
+
+TRAINING
+  epochs=40  best_epoch=40  final val loss=4.963540  train time=10.9 min  params=25,902,640
+
+INFERENCE SPEED
+  forward: 8.4 ms/image (median 8.2)   end-to-end: 23.1 ms/image   device: NVIDIA A100-SXM4-40GB
+
+NOTES
+  * thresholds were selected on the validation set -> slightly optimistic; see 'fixed' line for an untuned value
+==============================================================================

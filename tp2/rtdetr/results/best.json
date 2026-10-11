@@ -1,0 +1,9 @@
+{
+  "run": "rtdetr-l_bg3_ep40_seed0_lr2e-4_box48_img1024",
+  "run_dir": "/data/horse/ws/beay097h-teamproject_restore/beay097h-teamproject-1790463808/TeamProject_flagella/tp2/rtdetr/runs/rtdetr-l_bg3_ep40_seed0_lr2e-4_box48_img1024",
+  "lr0": "2e-4",
+  "box_px": 48,
+  "imgsz": 1024,
+  "F1": 0.8491620111731844,
+  "AP": 0.8353950647677844
+}

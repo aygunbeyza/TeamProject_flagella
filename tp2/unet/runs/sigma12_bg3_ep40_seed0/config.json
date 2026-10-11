@@ -1,0 +1,34 @@
+{
+  "run_tag": "sigma12_bg3_ep40_seed0",
+  "model": "unet",
+  "timestamp": "2026-10-10T11:49:38",
+  "params": {
+    "sigma": 12.0,
+    "bg_per_tomo": 3,
+    "epochs": 40,
+    "lr": 0.0001,
+    "batch_size": 1,
+    "hm_weight": 10.0,
+    "features": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "num_workers": 4,
+    "no_intensity_aug": false,
+    "seed": 0,
+    "tag": "",
+    "pad_multiple": 16,
+    "reference_spacing": 15.6,
+    "early_stopping": false,
+    "device": "cuda"
+  },
+  "data": {
+    "train_motor_slices": 354,
+    "train_background_slices": 699,
+    "val_motor_slices": 96,
+    "val_background_slices": 159
+  },
+  "model_params": 8113601
+}

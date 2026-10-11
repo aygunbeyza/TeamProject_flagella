@@ -1,0 +1,36 @@
+==============================================================================
+SUMMARY OF ALL EXPERIMENTS
+==============================================================================
+
+7 experiments on the val split (255 slices, 96 ground-truth motors). Training and validation use motor AND background slices unless the tag says bg0.
+
+BEST EXPERIMENT PER METRIC
+  F1                 : unet s14 bg3 (F1 = 0.766)
+  F2                 : unet s14 bg3 (F2 = 0.708)
+  precision @best F1 : unet s10 bg3 (P@F1 = 0.923)
+  recall @best F1    : unet s14 bg3 (R@F1 = 0.667)
+  AP                 : unet s14 bg3 (AP = 0.706)
+  fewest FP on background slices : unet s10 bg3 (FP_background@F1 = 2.000)
+
+RANKING BY F2 (Kaggle metric)
+   1. unet s14 bg3             F2=0.708 (thr 0.30)  F1=0.766  P=0.901  R=0.667  AP=0.706  FP_bg=3
+   2. unet s12 bg3             F2=0.707 (thr 0.15)  F1=0.739  P=0.884  R=0.635  AP=0.690  FP_bg=4
+   3. unet s10 bg3             F2=0.681 (thr 0.10)  F1=0.745  P=0.923  R=0.625  AP=0.653  FP_bg=2
+   4. unet s12 bg0             F2=0.636 (thr 0.10)  F1=0.678  P=0.773  R=0.604  AP=0.600  FP_bg=12
+   5. unet s16 bg3             F2=0.598 (thr 0.10)  F1=0.662  P=0.909  R=0.521  AP=0.578  FP_bg=2
+   6. unet s8 bg3              F2=0.594 (thr 0.30)  F1=0.624  P=0.716  R=0.552  AP=0.574  FP_bg=10
+   7. unet s18 bg3             F2=0.588 (thr 0.15)  F1=0.671  P=0.911  R=0.531  AP=0.561  FP_bg=3
+
+SIGMA
+  F2 ranges from 0.588 to 0.708 over sigma = 8, 10, 12, 14, 16, 18 (spread 0.121).
+  With 96 validation motors one motor changes recall by 1.0 points, so small differences between sigma values are not statistically meaningful (single seed).
+
+BACKGROUND SLICES IN TRAINING (bg0 = motor slices only)
+  sigma 12: FP on background slices 12 (bg0) vs 4 (bg3), F2 0.636 vs 0.707
+
+FILES
+  all_results.csv, comparison.md, pr_curves.png, curves_vs_threshold.png, metrics_bar_comparison.png,
+  metrics_vs_sigma.png, f2_vs_sigma.png, false_positives.png, cost_comparison.png
+  per-experiment details: runs/<model>/<run_tag>/eval_val/summary.txt, pr_curve.png and loss_curve.png
+  NOTE: thresholds were chosen on the validation set -> numbers are slightly optimistic.
+==============================================================================

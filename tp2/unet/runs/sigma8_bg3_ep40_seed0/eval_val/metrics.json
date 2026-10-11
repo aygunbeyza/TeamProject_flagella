@@ -1,0 +1,149 @@
+{
+  "model": "unet",
+  "run_tag": "sigma8_bg3_ep40_seed0",
+  "split": "val",
+  "hit_distance_nm": 374.4,
+  "hit_distance_px_at_reference": 24,
+  "reference_spacing": 15.6,
+  "all_slices": {
+    "n_slices": 255,
+    "n_background_slices": 159,
+    "n_gt_motors": 96,
+    "average_precision": 0.5739714217838797,
+    "best_f1": {
+      "threshold": 0.6,
+      "precision": 0.7162162162162162,
+      "recall": 0.5520833333333334,
+      "f1": 0.6235294117647059,
+      "f2": 0.5786026200873362,
+      "tp": 53,
+      "fp": 21,
+      "fn": 43,
+      "fp_on_background_slices": 10,
+      "fp_on_motor_slices": 11
+    },
+    "best_f2": {
+      "threshold": 0.3,
+      "precision": 0.5221238938053098,
+      "recall": 0.6145833333333334,
+      "f1": 0.5645933014354068,
+      "f2": 0.5935613682092556,
+      "tp": 59,
+      "fp": 54,
+      "fn": 37,
+      "fp_on_background_slices": 22,
+      "fp_on_motor_slices": 32
+    },
+    "fixed_threshold": {
+      "threshold": 0.5,
+      "precision": 0.6179775280898876,
+      "recall": 0.5729166666666666,
+      "f1": 0.5945945945945946,
+      "f2": 0.5813953488372092,
+      "tp": 55,
+      "fp": 34,
+      "fn": 41,
+      "fp_on_background_slices": 15,
+      "fp_on_motor_slices": 19
+    },
+    "false_alarms_per_background_slice_at_best_f1": 0.06289308176100629,
+    "median_localisation_error_px_at_best_f1": 3.725451612742911
+  },
+  "motor_slices_only": {
+    "n_slices": 96,
+    "n_background_slices": 0,
+    "n_gt_motors": 96,
+    "average_precision": 0.5981794076605751,
+    "best_f1": {
+      "threshold": 0.6,
+      "precision": 0.828125,
+      "recall": 0.5520833333333334,
+      "f1": 0.6625,
+      "f2": 0.5915178571428572,
+      "tp": 53,
+      "fp": 11,
+      "fn": 43,
+      "fp_on_background_slices": 0,
+      "fp_on_motor_slices": 11
+    },
+    "best_f2": {
+      "threshold": 0.3,
+      "precision": 0.6483516483516484,
+      "recall": 0.6145833333333334,
+      "f1": 0.6310160427807486,
+      "f2": 0.6210526315789474,
+      "tp": 59,
+      "fp": 32,
+      "fn": 37,
+      "fp_on_background_slices": 0,
+      "fp_on_motor_slices": 32
+    },
+    "fixed_threshold": {
+      "threshold": 0.5,
+      "precision": 0.7432432432432432,
+      "recall": 0.5729166666666666,
+      "f1": 0.6470588235294117,
+      "f2": 0.6004366812227074,
+      "tp": 55,
+      "fp": 19,
+      "fn": 41,
+      "fp_on_background_slices": 0,
+      "fp_on_motor_slices": 19
+    },
+    "false_alarms_per_background_slice_at_best_f1": null,
+    "median_localisation_error_px_at_best_f1": 3.725451612742911
+  },
+  "train": {
+    "run_tag": "sigma8_bg3_ep40_seed0",
+    "epochs": 40,
+    "best_epoch": 26,
+    "best_val_loss": 0.00030665616955222034,
+    "final_val_loss": 0.0004076791619377447,
+    "final_train_loss": 9.27252988364762e-05,
+    "train_time_min": 50.6,
+    "model_params": 8113601,
+    "device": "cuda",
+    "gpu": "NVIDIA A100-SXM4-40GB"
+  },
+  "inference": {
+    "model": "unet",
+    "checkpoint": "last",
+    "split": "val",
+    "n_images_timed": 250,
+    "warmup_excluded": 5,
+    "device": "cuda",
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "forward_ms_mean": 22.779889344703406,
+    "forward_ms_median": 22.889406012836844,
+    "end_to_end_ms_mean": 61.83199859340675,
+    "note": "forward = network only; end_to_end = rescale + pad + forward + peak decoding (image file loading excluded)"
+  },
+  "params": {
+    "sigma": 8.0,
+    "bg_per_tomo": 3,
+    "epochs": 40,
+    "lr": 0.0001,
+    "batch_size": 1,
+    "hm_weight": 10.0,
+    "features": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "num_workers": 4,
+    "no_intensity_aug": false,
+    "seed": 0,
+    "tag": "",
+    "pad_multiple": 16,
+    "reference_spacing": 15.6,
+    "early_stopping": false,
+    "device": "cuda"
+  },
+  "data": {
+    "train_motor_slices": 354,
+    "train_background_slices": 699,
+    "val_motor_slices": 96,
+    "val_background_slices": 159
+  }
+}

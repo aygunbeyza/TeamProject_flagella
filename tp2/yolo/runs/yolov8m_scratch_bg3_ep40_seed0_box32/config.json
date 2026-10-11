@@ -1,0 +1,26 @@
+{
+  "run_tag": "yolov8m_scratch_bg3_ep40_seed0_box32",
+  "model": "yolo",
+  "timestamp": "2026-10-10T15:04:45",
+  "params": {
+    "weights": "yolov8m",
+    "pretrained": false,
+    "imgsz": 1024,
+    "batch_size": 8,
+    "epochs": 40,
+    "bg_per_tomo": 3,
+    "seed": 0,
+    "box_px_at_reference": 32.0,
+    "reference_spacing": 15.6,
+    "augmentation": "matched to U-Net",
+    "early_stopping": false,
+    "device": "0"
+  },
+  "data": {
+    "train_motor_slices": 354,
+    "train_background_slices": 699,
+    "val_motor_slices": 96,
+    "val_background_slices": 159
+  },
+  "model_params": 25902640
+}

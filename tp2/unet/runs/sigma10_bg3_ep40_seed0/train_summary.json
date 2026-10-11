@@ -1,0 +1,12 @@
+{
+  "run_tag": "sigma10_bg3_ep40_seed0",
+  "epochs": 40,
+  "best_epoch": 35,
+  "best_val_loss": 0.0004934257658716657,
+  "final_val_loss": 0.0005835811028133174,
+  "final_train_loss": 0.0001336018223151975,
+  "train_time_min": 50.5,
+  "model_params": 8113601,
+  "device": "cuda",
+  "gpu": "NVIDIA A100-SXM4-40GB"
+}

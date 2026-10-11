@@ -1,0 +1,13 @@
+{
+  "model": "unet",
+  "checkpoint": "last",
+  "split": "val",
+  "n_images_timed": 250,
+  "warmup_excluded": 5,
+  "device": "cuda",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "forward_ms_mean": 22.779889344703406,
+  "forward_ms_median": 22.889406012836844,
+  "end_to_end_ms_mean": 61.83199859340675,
+  "note": "forward = network only; end_to_end = rescale + pad + forward + peak decoding (image file loading excluded)"
+}
