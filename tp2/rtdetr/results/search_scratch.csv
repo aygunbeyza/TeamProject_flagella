@@ -1,0 +1,8 @@
+run,lr0,box_px,imgsz,F1,F1_thr,P@F1,R@F1,AP,F1@0.5,FP_bg@F1,best_epoch,train_min,selected
+rtdetr-l_scratch_bg3_ep40_seed0_lr1e-4_box48_img1024,1e-4,48,1024,0.1349,0.3,0.109,0.1771,0.0836,0.0,11,36,24.98,
+rtdetr-l_scratch_bg3_ep40_seed0_lr2e-4_box48_img1024,2e-4,48,1024,0.3169,0.4,0.2394,0.4688,0.2431,0.2676,2,39,24.98,
+rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img640,4e-4,32,640,0.5,0.55,0.65,0.4062,0.4211,0.4792,0,38,19.94,<- BEST
+rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img1024,4e-4,32,1024,0.3333,0.45,0.2586,0.4688,0.3086,0.2734,1,39,25.83,
+rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box48_img1024,4e-4,48,1024,0.3275,0.45,0.2461,0.4896,0.2475,0.274,6,40,24.84,
+rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box64_img1024,4e-4,64,1024,0.2613,0.45,0.2524,0.2708,0.1837,0.0741,0,32,26.29,
+rtdetr-l_scratch_bg3_ep40_seed0_lr5e-5_box48_img1024,5e-5,48,1024,0.16,0.25,0.1772,0.1458,0.0937,0.0,0,38,25.2,

@@ -2,7 +2,7 @@
 SUMMARY OF ALL EXPERIMENTS
 ==============================================================================
 
-21 experiments on the val split (255 slices, 96 ground-truth motors). Training and validation use motor AND background slices unless the tag says bg0.
+28 experiments on the val split (255 slices, 96 ground-truth motors). Training and validation use motor AND background slices unless the tag says bg0.
 
 BEST EXPERIMENT PER METRIC
   F1                 : yolo/yolov8m_bg0_ep40_seed0 (F1 = 0.865)
@@ -31,9 +31,16 @@ RANKING BY F2 (Kaggle metric)
   16. unet s8 bg3              F2=0.594 (thr 0.30)  F1=0.624  P=0.716  R=0.552  AP=0.574  FP_bg=10
   17. unet s18 bg3             F2=0.588 (thr 0.15)  F1=0.671  P=0.911  R=0.531  AP=0.561  FP_bg=3
   18. rtdetr/rtdetr-l_bg3_ep40_seed0_lr5e-5_box48_img1024 F2=0.507 (thr 0.40)  F1=0.424  P=0.333  R=0.583  AP=0.401  FP_bg=3
-  19. rtdetr/rtdetr-l_bg3_ep40_seed0_lr1e-4_box48_img1024 F2=0.426 (thr 0.35)  F1=0.328  P=0.244  R=0.500  AP=0.214  FP_bg=1
-  20. rtdetr/rtdetr-l_bg3_ep40_seed0_lr2e-4_box32_img1024 F2=0.368 (thr 0.40)  F1=0.272  P=0.284  R=0.260  AP=0.203  FP_bg=4
-  21. rtdetr/rtdetr-l_bg3_ep40_seed0_lr4e-4_box48_img1024 F2=0.000 (thr 0.05)  F1=0.000  P=0.000  R=0.000  AP=0.000  FP_bg=0
+  19. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img640 F2=0.485 (thr 0.45)  F1=0.500  P=0.650  R=0.406  AP=0.421  FP_bg=0
+  20. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img1024 F2=0.441 (thr 0.30)  F1=0.333  P=0.259  R=0.469  AP=0.309  FP_bg=1
+  21. rtdetr/rtdetr-l_bg3_ep40_seed0_lr1e-4_box48_img1024 F2=0.426 (thr 0.35)  F1=0.328  P=0.244  R=0.500  AP=0.214  FP_bg=1
+  22. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box48_img1024 F2=0.414 (thr 0.40)  F1=0.328  P=0.246  R=0.490  AP=0.247  FP_bg=6
+  23. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr2e-4_box48_img1024 F2=0.400 (thr 0.35)  F1=0.317  P=0.239  R=0.469  AP=0.243  FP_bg=2
+  24. rtdetr/rtdetr-l_bg3_ep40_seed0_lr2e-4_box32_img1024 F2=0.368 (thr 0.40)  F1=0.272  P=0.284  R=0.260  AP=0.203  FP_bg=4
+  25. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box64_img1024 F2=0.356 (thr 0.30)  F1=0.261  P=0.252  R=0.271  AP=0.184  FP_bg=0
+  26. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr1e-4_box48_img1024 F2=0.195 (thr 0.25)  F1=0.135  P=0.109  R=0.177  AP=0.084  FP_bg=11
+  27. rtdetr/rtdetr-l_scratch_bg3_ep40_seed0_lr5e-5_box48_img1024 F2=0.159 (thr 0.20)  F1=0.160  P=0.177  R=0.146  AP=0.094  FP_bg=0
+  28. rtdetr/rtdetr-l_bg3_ep40_seed0_lr4e-4_box48_img1024 F2=0.000 (thr 0.05)  F1=0.000  P=0.000  R=0.000  AP=0.000  FP_bg=0
 
 SIGMA
   F2 ranges from 0.588 to 0.708 over sigma = 8, 10, 12, 14, 16, 18 (spread 0.121).

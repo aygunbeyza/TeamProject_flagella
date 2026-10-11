@@ -12,6 +12,13 @@ F1 / F2 use the best threshold on the validation set (slightly optimistic).
 | rtdetr | rtdetr-l_bg3_ep40_seed0_lr2e-4_box64_img1024 | 0.809 | 0.779 | 0.909 | 0.729 | 0.779 | 1 | 40 | 24.180 | 18.573 |
 | rtdetr | rtdetr-l_bg3_ep40_seed0_lr4e-4_box48_img1024 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0 | 40 | 24.220 | 18.501 |
 | rtdetr | rtdetr-l_bg3_ep40_seed0_lr5e-5_box48_img1024 | 0.424 | 0.507 | 0.333 | 0.583 | 0.401 | 3 | 40 | 24.310 | 18.692 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr1e-4_box48_img1024 | 0.135 | 0.195 | 0.109 | 0.177 | 0.084 | 11 | 40 | 24.980 | 18.592 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr2e-4_box48_img1024 | 0.317 | 0.400 | 0.239 | 0.469 | 0.243 | 2 | 40 | 24.980 | 18.644 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img1024 | 0.333 | 0.441 | 0.259 | 0.469 | 0.309 | 1 | 40 | 25.830 | 18.754 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img640 | 0.500 | 0.485 | 0.650 | 0.406 | 0.421 | 0 | 40 | 19.940 | 17.596 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box48_img1024 | 0.328 | 0.414 | 0.246 | 0.490 | 0.247 | 6 | 40 | 24.840 | 18.679 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box64_img1024 | 0.261 | 0.356 | 0.252 | 0.271 | 0.184 | 0 | 40 | 26.290 | 18.837 |
+| rtdetr | rtdetr-l_scratch_bg3_ep40_seed0_lr5e-5_box48_img1024 | 0.160 | 0.159 | 0.177 | 0.146 | 0.094 | 0 | 40 | 25.200 | 19.374 |
 | unet | sigma12_bg0_ep40_seed0 | 0.678 | 0.636 | 0.773 | 0.604 | 0.600 | 12 | 40 | 20.600 | 23.102 |
 | unet | sigma8_bg3_ep40_seed0 | 0.624 | 0.594 | 0.716 | 0.552 | 0.574 | 10 | 40 | 50.600 | 22.780 |
 | unet | sigma10_bg3_ep40_seed0 | 0.745 | 0.681 | 0.923 | 0.625 | 0.653 | 2 | 40 | 50.500 | 22.740 |

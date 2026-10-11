@@ -1,0 +1,36 @@
+==============================================================================
+EXPERIMENT : rtdetr / rtdetr-l_scratch_bg3_ep40_seed0_lr4e-4_box32_img640
+SPLIT      : val
+==============================================================================
+
+SETTINGS
+  bg_per_tomo=3, epochs=40, batch_size=8, seed=0
+  train: 354 motor / 699 background slices
+  val  : 96 motor / 159 background slices
+
+EVALUATION PROTOCOL
+  hit distance : 24 px at 15.6 spacing (= 374.4 physical units)
+  val slices   : 255 (96 motor, 159 background), 96 ground-truth motors
+
+RESULTS - all validation slices (motor + background)
+  AP (area under PR curve) : 0.4211
+  best F1 : thr=0.55  P=0.650  R=0.406  F1=0.500  F2=0.439  TP=39 FP=21 FN=57 (FP on background slices: 0)
+  best F2 : thr=0.45  P=0.405  R=0.510  F1=0.452  F2=0.485  TP=49 FP=72 FN=47 (FP on background slices: 0)
+  fixed   : thr=0.50  P=0.479  R=0.479  F1=0.479  F2=0.479  TP=46 FP=50 FN=50 (FP on background slices: 0)
+  false alarms per background slice @best F1 : 0.000
+  median localisation error @best F1         : 3.8 px (original pixels)
+
+RESULTS - motor slices only (no background slices)
+  AP : 0.4268
+  best F1 : thr=0.55  P=0.650  R=0.406  F1=0.500  F2=0.439  TP=39 FP=21 FN=57 (FP on background slices: 0)
+  best F2 : thr=0.45  P=0.405  R=0.510  F1=0.452  F2=0.485  TP=49 FP=72 FN=47 (FP on background slices: 0)
+
+TRAINING
+  epochs=40  best_epoch=38  final val loss=1.657930  train time=19.94 min  params=32,970,476
+
+INFERENCE SPEED
+  forward: 17.6 ms/image (median 17.5)   end-to-end: 30.9 ms/image   device: NVIDIA A100-SXM4-40GB
+
+NOTES
+  * thresholds were selected on the validation set -> slightly optimistic; see 'fixed' line for an untuned value
+==============================================================================
