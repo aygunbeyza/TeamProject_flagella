@@ -1,0 +1,21 @@
+% Pretrained
+\begin{tabular}{llrrrrrrrr}
+\toprule
+model & setting & F1 & AP & precision & recall & FP (no-motor) & median err (px) & train (min) & forward (ms) \\
+\midrule
+YOLOv8m & box 48 px & 0.854 & 0.820 & 0.888 & 0.823 & 1.000 & 2.284 & 10.700 & 8.428 \\
+RT-DETR-L & lr0=0.0002, box 48 px, imgsz 1024 & 0.849 & 0.835 & 0.916 & 0.792 & 1.000 & 2.828 & 24.310 & 18.579 \\
+\bottomrule
+\end{tabular}
+
+% From scratch
+\begin{tabular}{llrrrrrrrr}
+\toprule
+model & setting & F1 & AP & precision & recall & FP (no-motor) & median err (px) & train (min) & forward (ms) \\
+\midrule
+YOLOv8m & box 64 px & 0.776 & 0.733 & 0.892 & 0.688 & 2.000 & 3.146 & 11.000 & 8.548 \\
+U-Net & sigma=14 & 0.766 & 0.706 & 0.901 & 0.667 & 3.000 & 4.260 & 50.500 & 22.754 \\
+RT-DETR-L & lr0=0.0004, box 32 px, imgsz 640 & 0.500 & 0.421 & 0.650 & 0.406 & 0.000 & 3.830 & 19.940 & 17.596 \\
+\bottomrule
+\end{tabular}
+
