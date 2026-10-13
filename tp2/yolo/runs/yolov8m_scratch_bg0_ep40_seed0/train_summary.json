@@ -1,0 +1,12 @@
+{
+  "run_tag": "yolov8m_scratch_bg0_ep40_seed0",
+  "epochs": 40,
+  "best_epoch": 37,
+  "best_val_loss": 4.728059999999999,
+  "final_val_loss": 5.00983,
+  "train_time_min": 5.4,
+  "model_params": 25902640,
+  "device": "0",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "note": "val loss = box + cls + dfl summed; best epoch = highest Ultralytics fitness (not used for evaluation)"
+}

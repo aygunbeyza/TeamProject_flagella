@@ -1,0 +1,141 @@
+{
+  "model": "yolo",
+  "run_tag": "yolov8m_scratch_bg0_ep40_seed0_box32",
+  "split": "val",
+  "hit_distance_nm": 374.4,
+  "hit_distance_px_at_reference": 24,
+  "reference_spacing": 15.6,
+  "all_slices": {
+    "n_slices": 255,
+    "n_background_slices": 159,
+    "n_gt_motors": 96,
+    "average_precision": 0.657198150395486,
+    "best_f1": {
+      "threshold": 0.3,
+      "precision": 0.8309859154929577,
+      "recall": 0.6145833333333334,
+      "f1": 0.7065868263473054,
+      "f2": 0.6483516483516484,
+      "tp": 59,
+      "fp": 12,
+      "fn": 37,
+      "fp_on_background_slices": 4,
+      "fp_on_motor_slices": 8
+    },
+    "best_f2": {
+      "threshold": 0.25,
+      "precision": 0.7894736842105263,
+      "recall": 0.625,
+      "f1": 0.6976744186046512,
+      "f2": 0.6521739130434783,
+      "tp": 60,
+      "fp": 16,
+      "fn": 36,
+      "fp_on_background_slices": 5,
+      "fp_on_motor_slices": 11
+    },
+    "fixed_threshold": {
+      "threshold": 0.5,
+      "precision": 0.9433962264150944,
+      "recall": 0.5208333333333334,
+      "f1": 0.6711409395973155,
+      "f2": 0.5720823798627003,
+      "tp": 50,
+      "fp": 3,
+      "fn": 46,
+      "fp_on_background_slices": 2,
+      "fp_on_motor_slices": 1
+    },
+    "false_alarms_per_background_slice_at_best_f1": 0.025157232704402517,
+    "median_localisation_error_px_at_best_f1": 3.0268028693655733
+  },
+  "motor_slices_only": {
+    "n_slices": 96,
+    "n_background_slices": 0,
+    "n_gt_motors": 96,
+    "average_precision": 0.6868377395250433,
+    "best_f1": {
+      "threshold": 0.3,
+      "precision": 0.8805970149253731,
+      "recall": 0.6145833333333334,
+      "f1": 0.7239263803680982,
+      "f2": 0.6541019955654102,
+      "tp": 59,
+      "fp": 8,
+      "fn": 37,
+      "fp_on_background_slices": 0,
+      "fp_on_motor_slices": 8
+    },
+    "best_f2": {
+      "threshold": 0.05,
+      "precision": 0.5737704918032787,
+      "recall": 0.7291666666666666,
+      "f1": 0.6422018348623854,
+      "f2": 0.6916996047430831,
+      "tp": 70,
+      "fp": 52,
+      "fn": 26,
+      "fp_on_background_slices": 0,
+      "fp_on_motor_slices": 52
+    },
+    "fixed_threshold": {
+      "threshold": 0.5,
+      "precision": 0.9803921568627451,
+      "recall": 0.5208333333333334,
+      "f1": 0.6802721088435374,
+      "f2": 0.5747126436781609,
+      "tp": 50,
+      "fp": 1,
+      "fn": 46,
+      "fp_on_background_slices": 0,
+      "fp_on_motor_slices": 1
+    },
+    "false_alarms_per_background_slice_at_best_f1": null,
+    "median_localisation_error_px_at_best_f1": 3.0268028693655733
+  },
+  "train": {
+    "run_tag": "yolov8m_scratch_bg0_ep40_seed0_box32",
+    "epochs": 40,
+    "best_epoch": 37,
+    "best_val_loss": 5.638859999999999,
+    "final_val_loss": 5.73707,
+    "train_time_min": 5.4,
+    "model_params": 25902640,
+    "device": "0",
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "note": "val loss = box + cls + dfl summed; best epoch = highest Ultralytics fitness (not used for evaluation)"
+  },
+  "inference": {
+    "model": "yolo",
+    "checkpoint": "last",
+    "split": "val",
+    "n_images_timed": 250,
+    "warmup_excluded": 5,
+    "device": "cuda",
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "forward_ms_mean": 8.565862161573023,
+    "forward_ms_median": 8.174039947334677,
+    "end_to_end_ms_mean": 26.291593740694225,
+    "note": "forward = network only (ultralytics 'inference' time); end_to_end = predict() call incl. image read, letterbox, forward and NMS"
+  },
+  "params": {
+    "weights": "yolov8m",
+    "pretrained": false,
+    "imgsz": 1024,
+    "batch_size": 8,
+    "epochs": 40,
+    "bg_per_tomo": 0,
+    "seed": 0,
+    "box_px_at_reference": 32.0,
+    "reference_spacing": 15.6,
+    "augmentation": "matched to U-Net",
+    "early_stopping": false,
+    "device": "0"
+  },
+  "data": {
+    "train_motor_slices": 354,
+    "train_background_slices": 0,
+    "val_motor_slices": 96,
+    "val_background_slices": 159
+  }
+}
