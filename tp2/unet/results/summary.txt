@@ -2,7 +2,7 @@
 SUMMARY OF ALL EXPERIMENTS
 ==============================================================================
 
-7 experiments on the val split (255 slices, 96 ground-truth motors). Training and validation use motor AND background slices unless the tag says bg0.
+9 experiments on the val split (255 slices, 96 ground-truth motors). Training and validation use motor AND background slices unless the tag says bg0.
 
 BEST EXPERIMENT PER METRIC
   F1                 : unet s14 bg3 (F1 = 0.766)
@@ -17,16 +17,20 @@ RANKING BY F2 (Kaggle metric)
    2. unet s12 bg3             F2=0.707 (thr 0.15)  F1=0.739  P=0.884  R=0.635  AP=0.690  FP_bg=4
    3. unet s10 bg3             F2=0.681 (thr 0.10)  F1=0.745  P=0.923  R=0.625  AP=0.653  FP_bg=2
    4. unet s12 bg0             F2=0.636 (thr 0.10)  F1=0.678  P=0.773  R=0.604  AP=0.600  FP_bg=12
-   5. unet s16 bg3             F2=0.598 (thr 0.10)  F1=0.662  P=0.909  R=0.521  AP=0.578  FP_bg=2
-   6. unet s8 bg3              F2=0.594 (thr 0.30)  F1=0.624  P=0.716  R=0.552  AP=0.574  FP_bg=10
-   7. unet s18 bg3             F2=0.588 (thr 0.15)  F1=0.671  P=0.911  R=0.531  AP=0.561  FP_bg=3
+   5. unet s14 bg0             F2=0.615 (thr 0.10)  F1=0.667  P=0.818  R=0.562  AP=0.598  FP_bg=9
+   6. unet s16 bg3             F2=0.598 (thr 0.10)  F1=0.662  P=0.909  R=0.521  AP=0.578  FP_bg=2
+   7. unet s8 bg3              F2=0.594 (thr 0.30)  F1=0.624  P=0.716  R=0.552  AP=0.574  FP_bg=10
+   8. unet s18 bg3             F2=0.588 (thr 0.15)  F1=0.671  P=0.911  R=0.531  AP=0.561  FP_bg=3
+   9. unet s10 bg0             F2=0.587 (thr 0.45)  F1=0.646  P=0.779  R=0.552  AP=0.584  FP_bg=9
 
 SIGMA
-  F2 ranges from 0.588 to 0.708 over sigma = 8, 10, 12, 14, 16, 18 (spread 0.121).
+  F2 ranges from 0.587 to 0.708 over sigma = 8, 10, 12, 14, 16, 18 (spread 0.121).
   With 96 validation motors one motor changes recall by 1.0 points, so small differences between sigma values are not statistically meaningful (single seed).
 
 BACKGROUND SLICES IN TRAINING (bg0 = motor slices only)
+  sigma 10: FP on background slices 9 (bg0) vs 2 (bg3), F2 0.587 vs 0.681
   sigma 12: FP on background slices 12 (bg0) vs 4 (bg3), F2 0.636 vs 0.707
+  sigma 14: FP on background slices 9 (bg0) vs 3 (bg3), F2 0.615 vs 0.708
 
 FILES
   all_results.csv, comparison.md, pr_curves.png, curves_vs_threshold.png, metrics_bar_comparison.png,

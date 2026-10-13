@@ -38,20 +38,21 @@ df = pd.DataFrame(rows).sort_values(["bg", "sigma"])
 with3, without = df[df.bg == 3], df[df.bg == 0]
 print(df.to_string(index=False))
 
+
 BLUE, TEAL, RED = "#00008C", "#0A777F", "#B3261E"
 plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10})
 fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.0), gridspec_kw={"width_ratios": [1.6, 1]})
 
-# (a) F1 and AP versus sigma; bg3 = lines, bg0 = red markers
+# (a) F1 and AP versus sigma; bg3 = blue/teal, bg0 = red
 a.plot(with3.sigma, with3.F1, "o-", color=BLUE, lw=2.2, ms=7, label="F1, with motor-free slices (bg3)")
 a.plot(with3.sigma, with3.AP, "s--", color=TEAL, lw=1.8, ms=6, label="AP, with motor-free slices (bg3)")
-a.plot(without.sigma, without.F1, "D", color=RED, ms=9, label="F1, without motor-free slices (bg0)")
-a.plot(without.sigma, without.AP, "s", mfc="white", mec=RED, mew=1.8, ms=7, label="AP, without motor-free slices (bg0)")
+a.plot(without.sigma, without.F1, "D:", color=RED, lw=1.4, ms=9, label="F1, without motor-free slices (bg0)")
+a.plot(without.sigma, without.AP, "s:", color=RED, lw=1.0, mfc="white", mec=RED, mew=1.8, ms=7,
+       label="AP, without motor-free slices (bg0)")
 for x, v in zip(with3.sigma, with3.F1):
     a.annotate(f"{v:.2f}", (x, v), textcoords="offset points", xytext=(0, 8), ha="center", fontsize=9, color=BLUE)
-best = with3.loc[with3.F1.idxmax()]
-a.annotate("best", (best.sigma, best.AP), textcoords="offset points", xytext=(0, -16),
-           ha="center", fontsize=9, color=BLUE, weight="bold")
+for x, v in zip(without.sigma, without.F1):
+    a.annotate(f"{v:.2f}", (x, v), textcoords="offset points", xytext=(0, -15), ha="center", fontsize=9, color=RED)
 a.set_xlabel("Heat-map width $\\sigma$ (px)")
 a.set_ylabel("Score (validation set)")
 a.set_xticks(sorted(df.sigma.unique()))
@@ -60,18 +61,23 @@ a.grid(alpha=0.3)
 a.legend(loc="lower right", fontsize=8, frameon=False)
 a.set_title("(a) F1 and AP versus $\\sigma$", fontsize=10.5)
 
-# (b) false positives on motor-free validation slices, matched sigma
-s0 = without.sigma.iloc[0]
-fp3 = with3[with3.sigma == s0].FP.iloc[0]
-fp0 = without.FP.iloc[0]
-b.bar([0, 1], [fp3, fp0], color=[BLUE, RED], width=0.55)
-for x, v in zip([0, 1], [fp3, fp0]):
-    b.text(x, v + 0.25, f"{int(v)}", ha="center", fontsize=12, weight="bold")
-b.set_xticks([0, 1])
-b.set_xticklabels(["with motor-free\nslices (bg3)", "without motor-free\nslices (bg0)"], fontsize=9)
-b.set_ylim(0, max(fp3, fp0) * 1.2)
+# (b) false positives on motor-free validation slices, for every sigma that was trained with bg0
+sig = sorted(without.sigma.unique())
+w3 = [with3[with3.sigma == s].FP.iloc[0] for s in sig]
+w0 = [without[without.sigma == s].FP.iloc[0] for s in sig]
+x = np.arange(len(sig))
+b.bar(x - 0.2, w3, 0.38, color=BLUE, label="with motor-free slices (bg3)")
+b.bar(x + 0.2, w0, 0.38, color=RED, label="without motor-free slices (bg0)")
+for xi, v3, v0 in zip(x, w3, w0):
+    b.text(xi - 0.2, v3 + 0.2, f"{int(v3)}", ha="center", fontsize=10, weight="bold")
+    b.text(xi + 0.2, v0 + 0.2, f"{int(v0)}", ha="center", fontsize=10, weight="bold")
+b.set_xticks(x)
+b.set_xticklabels([f"{s:g}" for s in sig])
+b.set_xlabel("Heat-map width $\\sigma$ (px)")
 b.set_ylabel("False positives on motor-free\nvalidation slices")
-b.set_title(f"(b) False positives ($\\sigma$ = {s0:g})", fontsize=10.5)
+b.set_ylim(0, max(w3 + w0) * 1.25)
+b.legend(loc="upper left", fontsize=8, frameon=False)
+b.set_title("(b) False positives", fontsize=10.5)
 b.spines[["top", "right"]].set_visible(False)
 
 plt.tight_layout()
