@@ -1,0 +1,9 @@
+{
+  "run_tag": "rtdetr-l_bg0_ep40_seed0_lr2e-4_box64_img1024",
+  "epochs": 40,
+  "best_epoch": 38,
+  "final_val_loss": 1.9935299999999998,
+  "train_time_min": 10.96,
+  "model_params": 32970476,
+  "gpu": "NVIDIA A100-SXM4-40GB"
+}

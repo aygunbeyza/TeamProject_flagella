@@ -1,0 +1,13 @@
+{
+  "model": "rtdetr",
+  "checkpoint": "last",
+  "split": "val",
+  "n_images_timed": 250,
+  "warmup_excluded": 5,
+  "device": "cuda",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "forward_ms_mean": 18.796706325374544,
+  "forward_ms_median": 18.63372349180281,
+  "end_to_end_ms_mean": 35.9484847469721,
+  "note": "forward = network only (ultralytics 'inference' time); end_to_end = predict() call incl. image read, letterbox, forward and NMS"
+}
