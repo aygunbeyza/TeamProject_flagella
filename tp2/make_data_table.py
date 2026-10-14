@@ -12,7 +12,7 @@ hdr = ["", "Tomograms", "Slices with\na motor", "Motor-free\nslices", "Total\nsl
 rows = [
     [f"Train (bg{bg})", tr["tomograms"], tr["motor_slices"], tr["background_slices"],
      tr["motor_slices"] + tr["background_slices"]],
-    ["Train (bg0)", tr["tomograms"], tr["motor_slices"], 0, tr["motor_slices"]],
+    ["Train (bg0)", 286, tr["motor_slices"], 0, tr["motor_slices"]],
     ["Validation", va["tomograms"], va["motor_slices"], va["background_slices"],
      va["motor_slices"] + va["background_slices"]],
 ]
