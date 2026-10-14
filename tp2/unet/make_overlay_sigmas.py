@@ -21,11 +21,12 @@ for s in (8, 14):
     with torch.no_grad():
         hm = model(x.to(dev))[0, 0, :h, :w].cpu().numpy()
     print("sigma", s, "heat map max", float(hm.max()))
+    print("   peaks (y, x, score):", [(int(a), int(b), round(float(c), 2)) for a, b, c in P.detect_peaks(hm, cfg.MIN_SCORE, 20)])
     fig, ax = plt.subplots(figsize=(4, 4))
     ax.imshow(img_r, cmap="gray")
     ax.imshow(hm, cmap="jet", vmin=0, vmax=1, alpha=np.clip(hm * 1.6, 0, 0.85))
     ax.axis("off")
-    out = f"results_final/unet_overlay_sigma{s}.png"
+    out = f"results_final/unet_overlay_{sid}_sigma{s}.png"
     plt.savefig(out, dpi=200, bbox_inches="tight", pad_inches=0)
     plt.close()
     print("saved", out)
