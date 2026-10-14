@@ -1,39 +1,50 @@
 import numpy as np, pandas as pd, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from PIL import Image
 from scipy.ndimage import rotate
 
 sl = pd.read_csv("processed/slices.csv")
 gt = pd.read_csv("processed/gt.csv")
-print("gt columns:", list(gt.columns))
 val = sl[(sl.split == "val") & (sl.has_motor == 1)]
-m = val.merge(gt, on="slice_id", how="inner", suffixes=("", "_gt"))
-ycol = "y" if "y" in m.columns else [c for c in m.columns if c.endswith("y")][0]
-xcol = "x" if "x" in m.columns else [c for c in m.columns if c.endswith("x")][0]
-# motor well inside the image (not at the border)
-ok = m[(m[ycol] > 0.3 * m.height) & (m[ycol] < 0.7 * m.height) &
-       (m[xcol] > 0.3 * m.width) & (m[xcol] < 0.7 * m.width)]
+m = val.merge(gt, on="slice_id", how="inner")
+ok = m[(m.y > 0.3 * m.height) & (m.y < 0.7 * m.height) &
+       (m.x > 0.3 * m.width) & (m.x < 0.7 * m.width)]
 r = ok.iloc[0]
-print("using slice:", r.slice_id, "motor at", r[ycol], r[xcol])
+print("using slice:", r.slice_id, "motor at", r.y, r.x)
 
 img = np.array(Image.open(r.path).convert("L")).astype(float) / 255
 H = 320
-cy, cx = int(r[ycol]), int(r[xcol])
-crop = img[max(cy - H, 0):cy + H, max(cx - H, 0):cx + H]
+cy, cx = int(r.y), int(r.x)
+y0, x0 = max(cy - H, 0), max(cx - H, 0)
+crop = img[y0:cy + H, x0:cx + H]
+my, mx = cy - y0, cx - x0
+mark = np.zeros_like(crop)
+mark[my, mx] = 1.0
+
+def where(a):
+    i = np.unravel_index(np.argmax(a), a.shape)
+    return i[1], i[0]
 
 rng = np.random.default_rng(1)
-flip = crop[:, ::-1]
-rot = rotate(crop, 15, reshape=False, mode="reflect")
-bri = np.clip(crop * 1.2 + 0.1, 0, 1)
-noi = np.clip(crop + rng.normal(0, 0.05, crop.shape), 0, 1)
+flip, mflip = crop[:, ::-1], mark[:, ::-1]
+rot = rotate(crop, 15, reshape=False, order=1, mode="constant", cval=0)
+mrot = rotate(mark, 15, reshape=False, order=1, mode="constant", cval=0)
+bri = np.clip((crop - 0.5) * 1.4 + 0.6, 0, 1)
+noi = np.clip(crop + rng.normal(0, 0.1, crop.shape), 0, 1)
 
-panels = [("Original", crop), ("Flip", flip), ("Rotation (15°)", rot),
-          ("Brightness", bri), ("Noise (U-Net only)", noi)]
-fig, ax = plt.subplots(1, 5, figsize=(15, 3.4))
-for a, (t, im) in zip(ax, panels):
+panels = [("Original", crop, mark),
+          ("Flip", flip, mflip),
+          ("Rotation (15°)", rot, mrot),
+          ("Brightness / contrast\n(shown stronger)", bri, mark),
+          ("Noise, U-Net only\n(shown stronger)", noi, mark)]
+fig, ax = plt.subplots(1, 5, figsize=(15, 3.6))
+for a, (t, im, mk) in zip(ax, panels):
     a.imshow(im, cmap="gray", vmin=0, vmax=1)
-    a.set_title(t, fontsize=14)
+    px, py = where(mk)
+    a.add_patch(Circle((px, py), 38, fill=False, edgecolor="red", lw=2))
+    a.set_title(t, fontsize=13)
     a.axis("off")
 plt.tight_layout()
 plt.savefig("results_final/augmentation_examples.png", dpi=200)
