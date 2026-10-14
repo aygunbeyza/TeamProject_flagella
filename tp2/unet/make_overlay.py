@@ -35,10 +35,10 @@ pts = [(yy * sy, xx * sx) for yy, xx in gt.loc[gt.slice_id == sid, ["y", "x"]].t
 print("slice", sid, "heat map max", float(hm.max()), "motor (y,x)", pts)
 
 cy, cx = pts[0]
-y0 = int(max(0, min(cy - 190, h - 380)))
-x0 = int(max(0, min(cx - 300, w - 600)))
-im = img_r[y0:y0 + 380, x0:x0 + 600]
-hc = hm[y0:y0 + 380, x0:x0 + 600]
+y0 = 0
+x0 = 0
+im = img_r
+hc = hm
 fig, ax = plt.subplots(figsize=(6.3, 4))
 ax.imshow(im, cmap="gray")
 ax.imshow(hc, cmap="jet", vmin=0, vmax=1, alpha=np.clip(hc * 1.6, 0, 0.85))
